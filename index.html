@@ -53,6 +53,17 @@
             grid.children[n.index].textContent = n.value;
         });
 
+        // Check if two cells are adjacent
+        function isAdjacent(idx1, idx2) {
+            const row1 = Math.floor(idx1 / gridSize);
+            const col1 = idx1 % gridSize;
+            const row2 = Math.floor(idx2 / gridSize);
+            const col2 = idx2 % gridSize;
+            const rowDiff = Math.abs(row1 - row2);
+            const colDiff = Math.abs(col1 - col2);
+            return (rowDiff === 1 && colDiff === 0) || (rowDiff === 0 && colDiff === 1);
+        }
+
         // Handle drag drawing
         let isDrawing = false;
 
@@ -70,9 +81,12 @@
             if (isDrawing && e.target.classList.contains('cell')) {
                 const index = parseInt(e.target.dataset.index);
                 if (!path.includes(index)) {
-                    path.push(index);
-                    e.target.style.background = '#4CAF50';
-                    console.log('Path:', path);
+                    const lastIndex = path[path.length - 1];
+                    if (isAdjacent(lastIndex, index)) {
+                        path.push(index);
+                        e.target.style.background = '#4CAF50';
+                        console.log('Path:', path);
+                    }
                 }
             }
         });
