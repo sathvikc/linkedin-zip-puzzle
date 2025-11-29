@@ -53,14 +53,32 @@
             grid.children[n.index].textContent = n.value;
         });
 
-        // Handle clicks
-        grid.addEventListener('click', (e) => {
+        // Handle drag drawing
+        let isDrawing = false;
+
+        grid.addEventListener('mousedown', (e) => {
             if (e.target.classList.contains('cell')) {
+                isDrawing = true;
                 const index = parseInt(e.target.dataset.index);
                 path.push(index);
                 e.target.style.background = '#4CAF50';
                 console.log('Path:', path);
             }
+        });
+
+        grid.addEventListener('mousemove', (e) => {
+            if (isDrawing && e.target.classList.contains('cell')) {
+                const index = parseInt(e.target.dataset.index);
+                if (!path.includes(index)) {
+                    path.push(index);
+                    e.target.style.background = '#4CAF50';
+                    console.log('Path:', path);
+                }
+            }
+        });
+
+        grid.addEventListener('mouseup', () => {
+            isDrawing = false;
         });
     </script>
 </body>
