@@ -31,11 +31,13 @@
     <script type="module">
         const gridSize = 6;
         const grid = document.getElementById('grid');
+        const path = [];
 
         // Create grid cells
         for (let i = 0; i < gridSize * gridSize; i++) {
             const cell = document.createElement('div');
             cell.className = 'cell';
+            cell.dataset.index = i;
             grid.appendChild(cell);
         }
 
@@ -49,6 +51,16 @@
 
         numbers.forEach(n => {
             grid.children[n.index].textContent = n.value;
+        });
+
+        // Handle clicks
+        grid.addEventListener('click', (e) => {
+            if (e.target.classList.contains('cell')) {
+                const index = parseInt(e.target.dataset.index);
+                path.push(index);
+                e.target.style.background = '#4CAF50';
+                console.log('Path:', path);
+            }
         });
     </script>
 </body>
