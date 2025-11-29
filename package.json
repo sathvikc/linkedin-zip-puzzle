@@ -1,0 +1,23 @@
+{
+    "name": "linkedin-zip-puzzle",
+    "version": "0.1.0",
+    "description": "Browser-based LinkedIn Zip puzzle game showcasing lume-js, Web Workers, and modern web capabilities",
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "preview": "vite preview"
+    },
+    "keywords": [
+        "puzzle",
+        "game",
+        "linkedin-zip",
+        "lume-js",
+        "web-workers",
+        "indexeddb"
+    ],
+    "author": "Sathvik C",
+    "license": "MIT",
+    "devDependencies": {
+        "vite": "^5.4.11"
+    }
+}

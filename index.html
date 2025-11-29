@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zip Puzzle - Connect the Numbers</title>
+    
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="./styles.css">
+    
+    <!-- Tailwind Config -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            light: '#FF6B35',
+                            dark: '#7B68EE'
+                        },
+                        secondary: {
+                            light: '#14B8A6',
+                            dark: '#F472B6'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-orange-50 to-teal-50 dark:from-gray-900 dark:to-purple-900 transition-colors duration-300">
+    
+    <!-- Header -->
+    <header class="container mx-auto px-4 py-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl md:text-4xl font-bold text-gray-800 dark:text-white">
+                    ⚡ Zip Puzzle
+                </h1>
+                <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                    Connect the numbers, fill every cell
+                </p>
+            </div>
+            
+            <!-- Theme Toggle Button -->
+            <button 
+                id="theme-toggle" 
+                class="p-3 rounded-lg bg-white dark:bg-gray-800 shadow-lg hover:shadow-xl transition-all duration-200 text-2xl"
+                aria-label="Toggle theme"
+            >
+                <span class="dark:hidden">🌙</span>
+                <span class="hidden dark:inline">☀️</span>
+            </button>
+        </div>
+    </header>
+    
+    <!-- Main Game Container -->
+    <main class="container mx-auto px-4 py-8">
+        <div class="max-w-2xl mx-auto">
+            
+            <!-- Game Stats Bar -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 mb-6">
+                <div class="grid grid-cols-3 gap-4 text-center">
+                    <div>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Difficulty</p>
+                        <p class="text-lg font-bold text-primary-light dark:text-primary-dark" data-bind="difficulty">Easy</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Moves</p>
+                        <p class="text-lg font-bold text-gray-800 dark:text-white" data-bind="moveCount">0</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Progress</p>
+                        <p class="text-lg font-bold text-secondary-light dark:text-secondary-dark">
+                            <span data-bind="cellsVisited">0</span>/<span data-bind="totalCells">36</span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Game Grid Container -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 md:p-8 mb-6">
+                <div id="game-grid" class="grid-container">
+                    <!-- Grid will be rendered here by JavaScript -->
+                </div>
+            </div>
+            
+            <!-- Control Buttons -->
+            <div class="flex gap-4 justify-center flex-wrap">
+                <button 
+                    id="new-game-btn"
+                    class="px-6 py-3 bg-primary-light dark:bg-primary-dark text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
+                >
+                    🎮 New Puzzle
+                </button>
+                
+                <button 
+                    id="reset-btn"
+                    class="px-6 py-3 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
+                >
+                    🔄 Reset
+                </button>
+            </div>
+            
+            <!-- How to Play -->
+            <div class="mt-8 bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                <h2 class="text-xl font-bold text-gray-800 dark:text-white mb-4">📖 How to Play</h2>
+                <ul class="space-y-2 text-gray-700 dark:text-gray-300">
+                    <li class="flex items-start">
+                        <span class="mr-2">✓</span>
+                        <span>Click or tap on cell <strong>1</strong> to start</span>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="mr-2">✓</span>
+                        <span>Draw a continuous line connecting numbers in order</span>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="mr-2">✓</span>
+                        <span>Fill <strong>every cell</strong> exactly once</span>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="mr-2">✓</span>
+                        <span>Only horizontal/vertical moves (no diagonals)</span>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="mr-2">✓</span>
+                        <span>Line cannot cross itself</span>
+                    </li>
+                </ul>
+            </div>
+            
+        </div>
+    </main>
+    
+    <!-- Footer -->
+    <footer class="container mx-auto px-4 py-8 text-center text-gray-600 dark:text-gray-400">
+        <p class="text-sm">
+            Built with ❤️ using 
+            <a href="https://github.com/sathvikc/lume-js" target="_blank" class="text-primary-light dark:text-primary-dark hover:underline font-semibold">Lume.js</a>,
+            Web Workers, and IndexedDB
+        </p>
+    </footer>
+    
+    <!-- Lume.js via CDN -->
+    <script type="module" src="./js/main.js"></script>
+    
+</body>
+</html>
