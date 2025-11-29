@@ -53,6 +53,14 @@
             grid.children[n.index].textContent = n.value;
         });
 
+        // Track next expected number
+        let nextNumber = 1;
+
+        function getNumberAtIndex(idx) {
+            const num = numbers.find(n => n.index === idx);
+            return num ? num.value : null;
+        }
+
         // Check if two cells are adjacent
         function isAdjacent(idx1, idx2) {
             const row1 = Math.floor(idx1 / gridSize);
@@ -64,16 +72,35 @@
             return (rowDiff === 1 && colDiff === 0) || (rowDiff === 0 && colDiff === 1);
         }
 
+        function canAddToPath(idx) {
+            const cellNumber = getNumberAtIndex(idx);
+
+            // If it's a numbered cell, must match next expected number
+            if (cellNumber !== null) {
+                return cellNumber === nextNumber;
+            }
+
+            // Non-numbered cells can be added anytime
+            return true;
+        }
+
         // Handle drag drawing
         let isDrawing = false;
 
         grid.addEventListener('mousedown', (e) => {
             if (e.target.classList.contains('cell')) {
-                isDrawing = true;
                 const index = parseInt(e.target.dataset.index);
-                path.push(index);
-                e.target.style.background = '#4CAF50';
-                console.log('Path:', path);
+                if (canAddToPath(index)) {
+                    isDrawing = true;
+                    path.push(index);
+                    e.target.style.background = '#4CAF50';
+
+                    const cellNumber = getNumberAtIndex(index);
+                    if (cellNumber === nextNumber) {
+                        nextNumber++;
+                    }
+                    console.log('Path:', path, 'Next number:', nextNumber);
+                }
             }
         });
 
@@ -82,10 +109,15 @@
                 const index = parseInt(e.target.dataset.index);
                 if (!path.includes(index)) {
                     const lastIndex = path[path.length - 1];
-                    if (isAdjacent(lastIndex, index)) {
+                    if (isAdjacent(lastIndex, index) && canAddToPath(index)) {
                         path.push(index);
                         e.target.style.background = '#4CAF50';
-                        console.log('Path:', path);
+
+                        const cellNumber = getNumberAtIndex(index);
+                        if (cellNumber === nextNumber) {
+                            nextNumber++;
+                        }
+                        console.log('Path:', path, 'Next number:', nextNumber);
                     }
                 }
             }
