@@ -54,23 +54,97 @@
             grid.appendChild(cell);
         }
 
-        // Generate a puzzle
+        // Puzzle data
         let numbers = [];
 
-        function generatePuzzle() {
-            numbers = [];
-            const numCount = 4; // Start with 4 numbers
+        // Solver to check if puzzle has unique solution
+        function solvePuzzle(puzzleNumbers) {
             const totalCells = gridSize * gridSize;
-            const usedIndices = new Set();
+            let solutionCount = 0;
 
-            for (let i = 1; i <= numCount; i++) {
-                let index;
-                do {
-                    index = Math.floor(Math.random() * totalCells);
-                } while (usedIndices.has(index));
+            function getNumberAtIdx(idx) {
+                const n = puzzleNumbers.find(n => n.index === idx);
+                return n ? n.value : null;
+            }
 
-                usedIndices.add(index);
-                numbers.push({ index, value: i });
+            function isAdjacentIdx(idx1, idx2) {
+                const row1 = Math.floor(idx1 / gridSize);
+                const col1 = idx1 % gridSize;
+                const row2 = Math.floor(idx2 / gridSize);
+                const col2 = idx2 % gridSize;
+                const rowDiff = Math.abs(row1 - row2);
+                const colDiff = Math.abs(col1 - col2);
+                return (rowDiff === 1 && colDiff === 0) || (rowDiff === 0 && colDiff === 1);
+            }
+
+            function solve(currentPath, visited, nextNum) {
+                if (solutionCount > 1) return; // Early exit if multiple solutions found
+
+                if (currentPath.length === totalCells) {
+                    solutionCount++;
+                    return;
+                }
+
+                const lastIdx = currentPath[currentPath.length - 1];
+
+                // Try all possible next cells
+                for (let idx = 0; idx < totalCells; idx++) {
+                    if (visited.has(idx)) continue;
+                    if (!isAdjacentIdx(lastIdx, idx)) continue;
+
+                    const cellNum = getNumberAtIdx(idx);
+
+                    // Check number sequencing
+                    if (cellNum !== null && cellNum !== nextNum) continue;
+
+                    visited.add(idx);
+                    currentPath.push(idx);
+                    solve(currentPath, visited, cellNum === nextNum ? nextNum + 1 : nextNum);
+                    currentPath.pop();
+                    visited.delete(idx);
+                }
+            }
+
+            // Start from cell with number 1
+            const startCell = puzzleNumbers.find(n => n.value === 1);
+            if (!startCell) return 0;
+
+            const visited = new Set([startCell.index]);
+            solve([startCell.index], visited, 2);
+
+            return solutionCount;
+        }
+
+        function generatePuzzle() {
+            let attempts = 0;
+            const maxAttempts = 100;
+
+            while (attempts < maxAttempts) {
+                numbers = [];
+                const numCount = 4;
+                const totalCells = gridSize * gridSize;
+                const usedIndices = new Set();
+
+                for (let i = 1; i <= numCount; i++) {
+                    let index;
+                    do {
+                        index = Math.floor(Math.random() * totalCells);
+                    } while (usedIndices.has(index));
+
+                    usedIndices.add(index);
+                    numbers.push({ index, value: i });
+                }
+
+                // Check if puzzle has unique solution
+                const solutions = solvePuzzle(numbers);
+                console.log(`Attempt ${attempts + 1}: ${solutions} solution(s)`);
+
+                if (solutions === 1) {
+                    // Found a unique solution!
+                    break;
+                }
+
+                attempts++;
             }
 
             // Render numbers on grid
@@ -83,7 +157,7 @@
                 cells[n.index].textContent = n.value;
             });
 
-            console.log('Puzzle generated:', numbers);
+            console.log('Puzzle generated with unique solution:', numbers);
         }
 
         generatePuzzle();
