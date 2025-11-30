@@ -87,6 +87,15 @@
         // Handle drag drawing
         let isDrawing = false;
 
+        function checkWin() {
+            if (path.length === gridSize * gridSize) {
+                console.log('🎉 You won!');
+                alert('🎉 Congratulations! You solved the puzzle!');
+                return true;
+            }
+            return false;
+        }
+
         grid.addEventListener('mousedown', (e) => {
             if (e.target.classList.contains('cell')) {
                 const index = parseInt(e.target.dataset.index);
@@ -100,6 +109,7 @@
                         nextNumber++;
                     }
                     console.log('Path:', path, 'Next number:', nextNumber);
+                    checkWin();
                 }
             }
         });
@@ -118,6 +128,7 @@
                             nextNumber++;
                         }
                         console.log('Path:', path, 'Next number:', nextNumber);
+                        checkWin();
                     }
                 }
             }
