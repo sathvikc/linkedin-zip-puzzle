@@ -27,6 +27,8 @@
 <body>
     <h1>Zip Puzzle</h1>
     <div id="grid"></div>
+    <button id="reset">Reset</button>
+
 
     <script type="module">
         const gridSize = 6;
@@ -136,6 +138,16 @@
 
         grid.addEventListener('mouseup', () => {
             isDrawing = false;
+        });
+
+        document.getElementById('reset').addEventListener('click', () => {
+            path.length = 0;
+            nextNumber = 1;
+            const cells = grid.querySelectorAll('.cell');
+            cells.forEach(cell => {
+                cell.style.background = '';
+            });
+            console.log('Reset complete');
         });
     </script>
 </body>
