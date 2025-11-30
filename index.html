@@ -30,6 +30,12 @@
     <div id="grid"></div>
     <button id="new-puzzle">New Puzzle</button>
     <button id="reset">Reset</button>
+    <div id="debug"
+        style="margin-top: 20px; padding: 10px; background: #f0f0f0; font-family: monospace; font-size: 12px;">
+        <strong>DEBUG:</strong><br>
+        <div id="solution-display">Generate a puzzle to see solution...</div>
+    </div>
+
 
 
     <script type="module">
@@ -61,6 +67,7 @@
         function solvePuzzle(puzzleNumbers) {
             const totalCells = gridSize * gridSize;
             let solutionCount = 0;
+            let foundSolution = null;
 
             function getNumberAtIdx(idx) {
                 const n = puzzleNumbers.find(n => n.index === idx);
@@ -82,6 +89,9 @@
 
                 if (currentPath.length === totalCells) {
                     solutionCount++;
+                    if (solutionCount === 1) {
+                        foundSolution = [...currentPath]; // Store the first solution
+                    }
                     return;
                 }
 
@@ -107,44 +117,128 @@
 
             // Start from cell with number 1
             const startCell = puzzleNumbers.find(n => n.value === 1);
-            if (!startCell) return 0;
+            if (!startCell) return { count: 0, solution: null };
 
             const visited = new Set([startCell.index]);
             solve([startCell.index], visited, 2);
 
-            return solutionCount;
+            return { count: solutionCount, solution: foundSolution };
         }
+
+        // Generate a random Hamiltonian path (visits every cell exactly once)
+        function generateHamiltonianPath() {
+            const totalCells = gridSize * gridSize;
+            const path = [];
+            const visited = new Set();
+
+            function getNeighbors(idx) {
+                const neighbors = [];
+                const row = Math.floor(idx / gridSize);
+                const col = idx % gridSize;
+                const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+
+                for (const [dr, dc] of dirs) {
+                    const r = row + dr;
+                    const c = col + dc;
+                    if (r >= 0 && r < gridSize && c >= 0 && c < gridSize) {
+                        neighbors.push(r * gridSize + c);
+                    }
+                }
+                // Shuffle neighbors for randomness
+                for (let i = neighbors.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [neighbors[i], neighbors[j]] = [neighbors[j], neighbors[i]];
+                }
+                return neighbors;
+            }
+
+            function backtrack(currentIdx) {
+                path.push(currentIdx);
+                visited.add(currentIdx);
+
+                if (path.length === totalCells) {
+                    return true;
+                }
+
+                const neighbors = getNeighbors(currentIdx);
+                // Heuristic: try neighbors with fewer available neighbors first (Warnsdorff's rule-ish)
+                // This helps find paths much faster
+                neighbors.sort((a, b) => {
+                    const aCount = getNeighbors(a).filter(n => !visited.has(n)).length;
+                    const bCount = getNeighbors(b).filter(n => !visited.has(n)).length;
+                    return aCount - bCount;
+                });
+
+                for (const neighbor of neighbors) {
+                    if (!visited.has(neighbor)) {
+                        if (backtrack(neighbor)) return true;
+                    }
+                }
+
+                path.pop();
+                visited.delete(currentIdx);
+                return false;
+            }
+
+            // Start from a random cell
+            const startIdx = Math.floor(Math.random() * totalCells);
+            if (backtrack(startIdx)) {
+                return path;
+            }
+            return null;
+        }
+
+        let currentSolution = null;
 
         function generatePuzzle() {
             let attempts = 0;
-            const maxAttempts = 100;
+            const maxAttempts = 50; // Fewer attempts needed now since we start with a valid path
 
             while (attempts < maxAttempts) {
+                // 1. Generate a valid full path first
+                const fullPath = generateHamiltonianPath();
+                if (!fullPath) continue;
+
+                // 2. Place numbers along the path
+                // We place 1 at start, 4 at end, and 2,3 somewhere in between
                 numbers = [];
-                const numCount = 4;
-                const totalCells = gridSize * gridSize;
-                const usedIndices = new Set();
 
-                for (let i = 1; i <= numCount; i++) {
-                    let index;
-                    do {
-                        index = Math.floor(Math.random() * totalCells);
-                    } while (usedIndices.has(index));
+                // 1 is always at the start of the path
+                numbers.push({ index: fullPath[0], value: 1 });
 
-                    usedIndices.add(index);
-                    numbers.push({ index, value: i });
-                }
+                // Place 2 and 3 at random intervals
+                // e.g., 2 between index 5-15, 3 between index 20-30
+                const idx2 = 5 + Math.floor(Math.random() * 10);
+                const idx3 = 20 + Math.floor(Math.random() * 10);
 
-                // Check if puzzle has unique solution
-                const solutions = solvePuzzle(numbers);
-                console.log(`Attempt ${attempts + 1}: ${solutions} solution(s)`);
+                numbers.push({ index: fullPath[idx2], value: 2 });
+                numbers.push({ index: fullPath[idx3], value: 3 });
 
-                if (solutions === 1) {
+                // 4 is always at the end of the path
+                numbers.push({ index: fullPath[fullPath.length - 1], value: 4 });
+
+                // 3. Check uniqueness
+                // We know at least ONE solution exists (fullPath), but is it unique?
+                const result = solvePuzzle(numbers);
+                console.log(`Attempt ${attempts + 1}: ${result.count} solution(s)`);
+
+                if (result.count === 1) {
                     // Found a unique solution!
+                    currentSolution = result.solution;
+                    console.log('✅ Found puzzle with unique solution!');
                     break;
                 }
 
                 attempts++;
+            }
+
+            if (attempts === maxAttempts) {
+                console.warn('⚠️ Could not find unique solution. Using last generated puzzle (might have multiple solutions).');
+                // If we fail to find a unique one, we still have a valid solvable puzzle (fullPath)
+                // We just use that one, even if it might have multiple solutions
+                // Re-solve to get the solution path for the current numbers
+                const result = solvePuzzle(numbers);
+                currentSolution = result.solution || result.solutions?.[0]; // Fallback
             }
 
             // Render numbers on grid
@@ -158,6 +252,15 @@
             });
 
             console.log('Puzzle generated with unique solution:', numbers);
+            console.log('Full solution:', currentSolution);
+
+            // Display solution in debug area
+            const debugDiv = document.getElementById('solution-display');
+            debugDiv.innerHTML = `
+                <strong>Puzzle:</strong> ${JSON.stringify(numbers)}<br><br>
+                <strong>Solution Path (${currentSolution ? currentSolution.length : 0} cells):</strong><br>
+                ${currentSolution ? currentSolution.join(' → ') : 'No solution found'}
+            `;
         }
 
         generatePuzzle();
