@@ -28,6 +28,7 @@
     <h1>Zip Puzzle</h1>
     <p>Cells visited: <span data-bind="cellsVisited">0</span> / 36</p>
     <div id="grid"></div>
+    <button id="new-puzzle">New Puzzle</button>
     <button id="reset">Reset</button>
 
 
@@ -53,17 +54,39 @@
             grid.appendChild(cell);
         }
 
-        // Place some numbers
-        const numbers = [
-            { index: 0, value: 1 },
-            { index: 5, value: 2 },
-            { index: 35, value: 3 },
-            { index: 30, value: 4 }
-        ];
+        // Generate a puzzle
+        let numbers = [];
 
-        numbers.forEach(n => {
-            grid.children[n.index].textContent = n.value;
-        });
+        function generatePuzzle() {
+            numbers = [];
+            const numCount = 4; // Start with 4 numbers
+            const totalCells = gridSize * gridSize;
+            const usedIndices = new Set();
+
+            for (let i = 1; i <= numCount; i++) {
+                let index;
+                do {
+                    index = Math.floor(Math.random() * totalCells);
+                } while (usedIndices.has(index));
+
+                usedIndices.add(index);
+                numbers.push({ index, value: i });
+            }
+
+            // Render numbers on grid
+            const cells = grid.querySelectorAll('.cell');
+            cells.forEach(cell => {
+                cell.textContent = '';
+            });
+
+            numbers.forEach(n => {
+                cells[n.index].textContent = n.value;
+            });
+
+            console.log('Puzzle generated:', numbers);
+        }
+
+        generatePuzzle();
 
         // Track next expected number
         let nextNumber = 1;
@@ -152,6 +175,18 @@
 
         grid.addEventListener('mouseup', () => {
             isDrawing = false;
+        });
+
+        document.getElementById('new-puzzle').addEventListener('click', () => {
+            path.length = 0;
+            nextNumber = 1;
+            gameState.cellsVisited = 0;
+            const cells = grid.querySelectorAll('.cell');
+            cells.forEach(cell => {
+                cell.style.background = '';
+            });
+            generatePuzzle();
+            console.log('New puzzle generated');
         });
 
         document.getElementById('reset').addEventListener('click', () => {
