@@ -102,7 +102,9 @@
         function checkWin() {
             if (path.length === gridSize * gridSize) {
                 console.log('🎉 You won!');
-                alert('🎉 Congratulations! You solved the puzzle!');
+                setTimeout(() => {
+                    alert('🎉 Congratulations! You solved the puzzle!');
+                }, 100);
                 return true;
             }
             return false;
