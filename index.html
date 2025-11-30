@@ -26,14 +26,24 @@
 
 <body>
     <h1>Zip Puzzle</h1>
+    <p>Cells visited: <span data-bind="cellsVisited">0</span> / 36</p>
     <div id="grid"></div>
     <button id="reset">Reset</button>
 
 
     <script type="module">
+        import { state, bindDom } from 'https://cdn.jsdelivr.net/npm/lume-js@1.0.0/src/index.js';
+
         const gridSize = 6;
         const grid = document.getElementById('grid');
         const path = [];
+
+        // Reactive state with Lume.js
+        const gameState = state({
+            cellsVisited: 0
+        });
+
+        bindDom(document.body, gameState);
 
         // Create grid cells
         for (let i = 0; i < gridSize * gridSize; i++) {
@@ -104,6 +114,7 @@
                 if (canAddToPath(index)) {
                     isDrawing = true;
                     path.push(index);
+                    gameState.cellsVisited = path.length;
                     e.target.style.background = '#4CAF50';
 
                     const cellNumber = getNumberAtIndex(index);
@@ -123,6 +134,7 @@
                     const lastIndex = path[path.length - 1];
                     if (isAdjacent(lastIndex, index) && canAddToPath(index)) {
                         path.push(index);
+                        gameState.cellsVisited = path.length;
                         e.target.style.background = '#4CAF50';
 
                         const cellNumber = getNumberAtIndex(index);
@@ -143,6 +155,7 @@
         document.getElementById('reset').addEventListener('click', () => {
             path.length = 0;
             nextNumber = 1;
+            gameState.cellsVisited = 0;
             const cells = grid.querySelectorAll('.cell');
             cells.forEach(cell => {
                 cell.style.background = '';
