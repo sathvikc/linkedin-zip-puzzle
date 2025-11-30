@@ -67,7 +67,7 @@
         function solvePuzzle(puzzleNumbers) {
             const totalCells = gridSize * gridSize;
             let solutionCount = 0;
-            let foundSolution = null;
+            const solutions = [];
 
             function getNumberAtIdx(idx) {
                 const n = puzzleNumbers.find(n => n.index === idx);
@@ -85,13 +85,11 @@
             }
 
             function solve(currentPath, visited, nextNum) {
-                if (solutionCount > 1) return; // Early exit if multiple solutions found
+                if (solutionCount >= 5) return; // Stop after finding 5 solutions
 
                 if (currentPath.length === totalCells) {
                     solutionCount++;
-                    if (solutionCount === 1) {
-                        foundSolution = [...currentPath]; // Store the first solution
-                    }
+                    solutions.push([...currentPath]);
                     return;
                 }
 
@@ -117,12 +115,12 @@
 
             // Start from cell with number 1
             const startCell = puzzleNumbers.find(n => n.value === 1);
-            if (!startCell) return { count: 0, solution: null };
+            if (!startCell) return { count: 0, solutions: [] };
 
             const visited = new Set([startCell.index]);
             solve([startCell.index], visited, 2);
 
-            return { count: solutionCount, solution: foundSolution };
+            return { count: solutionCount, solutions: solutions };
         }
 
         // Generate a random Hamiltonian path (visits every cell exactly once)
@@ -193,6 +191,7 @@
         function generatePuzzle() {
             let attempts = 0;
             const maxAttempts = 50; // Fewer attempts needed now since we start with a valid path
+            const totalCells = gridSize * gridSize;
 
             while (attempts < maxAttempts) {
                 // 1. Generate a valid full path first
@@ -200,31 +199,80 @@
                 if (!fullPath) continue;
 
                 // 2. Place numbers along the path
-                // We place 1 at start, 4 at end, and 2,3 somewhere in between
-                numbers = [];
+                // Strategy: Keep track of which path indices are "revealed" as clues
+                const revealedIndices = new Set();
 
-                // 1 is always at the start of the path
-                numbers.push({ index: fullPath[0], value: 1 });
+                // Always reveal Start (0) and End (35)
+                revealedIndices.add(0);
+                revealedIndices.add(totalCells - 1);
 
-                // Place 2 and 3 at random intervals
-                // e.g., 2 between index 5-15, 3 between index 20-30
-                const idx2 = 5 + Math.floor(Math.random() * 10);
-                const idx3 = 20 + Math.floor(Math.random() * 10);
+                // Reveal 2 intermediate numbers at random intervals (Total 4 initial clues)
+                // We rely on the adaptive fix to add more clues only where strictly necessary
+                const intermediateCount = 2;
+                const segmentSize = Math.floor((totalCells - 2) / (intermediateCount + 1));
 
-                numbers.push({ index: fullPath[idx2], value: 2 });
-                numbers.push({ index: fullPath[idx3], value: 3 });
+                for (let i = 0; i < intermediateCount; i++) {
+                    const baseIdx = (i + 1) * segmentSize;
+                    const randomOffset = Math.floor(Math.random() * segmentSize);
+                    const pathIdx = baseIdx + randomOffset;
+                    if (pathIdx > 0 && pathIdx < totalCells - 1) {
+                        revealedIndices.add(pathIdx);
+                    }
+                }
 
-                // 4 is always at the end of the path
-                numbers.push({ index: fullPath[fullPath.length - 1], value: 4 });
+                // Helper to convert revealed indices to puzzle numbers
+                function createPuzzleFromIndices(indicesSet) {
+                    // Sort indices by their position in the path (0..35)
+                    const sortedPathIndices = Array.from(indicesSet).sort((a, b) => a - b);
 
-                // 3. Check uniqueness
-                // We know at least ONE solution exists (fullPath), but is it unique?
-                const result = solvePuzzle(numbers);
-                console.log(`Attempt ${attempts + 1}: ${result.count} solution(s)`);
+                    // Map to puzzle format: { index: gridIndex, value: sequential 1..N }
+                    return sortedPathIndices.map((pathIdx, i) => ({
+                        index: fullPath[pathIdx],
+                        value: i + 1
+                    }));
+                }
+
+                numbers = createPuzzleFromIndices(revealedIndices);
+
+                // 3. Check uniqueness and fix if needed
+                let result = solvePuzzle(numbers);
+                console.log(`Attempt ${attempts + 1} Initial: ${result.count} solution(s)`);
+
+                // Adaptive Fix: If multiple solutions, add clues to force uniqueness
+                let fixAttempts = 0;
+                while (result.count > 1 && fixAttempts < 10) {
+                    const sol1 = fullPath; // The intended solution
+                    const sol2 = result.solutions[0].toString() === fullPath.toString() ? result.solutions[1] : result.solutions[0];
+
+                    if (!sol2) break;
+
+                    // Find first point of divergence
+                    let diffIdx = -1;
+                    for (let i = 0; i < totalCells; i++) {
+                        if (sol1[i] !== sol2[i]) {
+                            diffIdx = i;
+                            break;
+                        }
+                    }
+
+                    if (diffIdx !== -1) {
+                        // Add a clue at the divergence point
+                        // IMPORTANT: We just add the index to our set and RE-GENERATE the numbers
+                        // This ensures values are always 1, 2, 3... in correct order
+                        if (!revealedIndices.has(diffIdx)) {
+                            revealedIndices.add(diffIdx);
+                            numbers = createPuzzleFromIndices(revealedIndices);
+                            console.log(`Fixing ambiguity at step ${diffIdx + 1} (Cell ${fullPath[diffIdx]})`);
+                        }
+                    }
+
+                    result = solvePuzzle(numbers);
+                    fixAttempts++;
+                }
 
                 if (result.count === 1) {
                     // Found a unique solution!
-                    currentSolution = result.solution;
+                    currentSolution = result.solutions[0];
                     console.log('✅ Found puzzle with unique solution!');
                     break;
                 }
@@ -238,7 +286,10 @@
                 // We just use that one, even if it might have multiple solutions
                 // Re-solve to get the solution path for the current numbers
                 const result = solvePuzzle(numbers);
-                currentSolution = result.solution || result.solutions?.[0]; // Fallback
+                currentSolution = result.solutions; // Store all found solutions
+            } else {
+                // If unique, wrap in array for consistent display logic
+                currentSolution = [currentSolution];
             }
 
             // Render numbers on grid
@@ -252,14 +303,27 @@
             });
 
             console.log('Puzzle generated with unique solution:', numbers);
-            console.log('Full solution:', currentSolution);
+            console.log('Full solution(s):', currentSolution);
 
             // Display solution in debug area
             const debugDiv = document.getElementById('solution-display');
+            let solutionsHtml = '';
+
+            if (currentSolution && currentSolution.length > 0) {
+                solutionsHtml = currentSolution.map((sol, idx) => `
+                    <div style="margin-bottom: 10px; border-bottom: 1px solid #ccc; padding-bottom: 5px;">
+                        <strong>Solution ${idx + 1} (${sol.length} cells):</strong><br>
+                        ${sol.join(' → ')}
+                    </div>
+                `).join('');
+            } else {
+                solutionsHtml = 'No solution found';
+            }
+
             debugDiv.innerHTML = `
                 <strong>Puzzle:</strong> ${JSON.stringify(numbers)}<br><br>
-                <strong>Solution Path (${currentSolution ? currentSolution.length : 0} cells):</strong><br>
-                ${currentSolution ? currentSolution.join(' → ') : 'No solution found'}
+                <strong>Found ${currentSolution ? currentSolution.length : 0} Solution(s):</strong><br>
+                ${solutionsHtml}
             `;
         }
 
