@@ -285,21 +285,95 @@
             return false;
         }
 
+        // Helper to add a cell to the path
+        function addToPath(index, element) {
+            path.push(index);
+            gameState.cellsVisited = path.length;
+            element.style.background = '#4CAF50';
+
+            const cellNumber = getNumberAtIndex(index);
+            if (cellNumber === nextNumber) {
+                nextNumber++;
+            }
+            console.log('Path:', path, 'Next number:', nextNumber);
+            checkWin();
+        }
+
+        // Helper to truncate path (undo/backtrack)
+        function truncatePath(targetIndex) {
+            const targetPos = path.indexOf(targetIndex);
+            if (targetPos === -1) return;
+
+            // Remove cells after target
+            const removedCells = path.slice(targetPos + 1);
+            path.length = targetPos + 1;
+            gameState.cellsVisited = path.length;
+
+            // Reset UI for removed cells
+            const cells = grid.querySelectorAll('.cell');
+            removedCells.forEach(idx => {
+                cells[idx].style.background = '';
+            });
+
+            // Recalculate nextNumber
+            nextNumber = 1;
+            path.forEach(idx => {
+                const num = getNumberAtIndex(idx);
+                if (num === nextNumber) {
+                    nextNumber++;
+                }
+            });
+            
+            console.log('Backtracked to:', targetIndex, 'Path:', path, 'Next:', nextNumber);
+        }
+
         grid.addEventListener('mousedown', (e) => {
             if (e.target.classList.contains('cell')) {
                 const index = parseInt(e.target.dataset.index);
-                if (canAddToPath(index)) {
+                
+                // Case 1: Resume from last cell
+                if (path.length > 0 && index === path[path.length - 1]) {
                     isDrawing = true;
-                    path.push(index);
-                    gameState.cellsVisited = path.length;
-                    e.target.style.background = '#4CAF50';
+                    return;
+                }
 
-                    const cellNumber = getNumberAtIndex(index);
-                    if (cellNumber === nextNumber) {
-                        nextNumber++;
+                // Case 2: Backtrack (click on existing path cell)
+                if (path.includes(index)) {
+                    truncatePath(index);
+                    isDrawing = true;
+                    return;
+                }
+
+                // Case 3: Continue path (click adjacent to end)
+                if (path.length > 0) {
+                    const lastIndex = path[path.length - 1];
+                    if (isAdjacent(lastIndex, index) && canAddToPath(index)) {
+                        isDrawing = true;
+                        addToPath(index, e.target);
+                        return;
                     }
-                    console.log('Path:', path, 'Next number:', nextNumber);
-                    checkWin();
+                }
+
+                // Case 4: Start new path (only if clicking 1 or path empty)
+                // If clicking '1', reset and start
+                const cellNumber = getNumberAtIndex(index);
+                if (cellNumber === 1) {
+                    // Reset everything
+                    path.length = 0;
+                    gameState.cellsVisited = 0;
+                    nextNumber = 1;
+                    const cells = grid.querySelectorAll('.cell');
+                    cells.forEach(c => c.style.background = '');
+                    
+                    isDrawing = true;
+                    addToPath(index, e.target);
+                    return;
+                }
+
+                // Case 5: Start new path (empty path)
+                if (path.length === 0 && canAddToPath(index)) {
+                    isDrawing = true;
+                    addToPath(index, e.target);
                 }
             }
         });
@@ -307,19 +381,18 @@
         grid.addEventListener('mousemove', (e) => {
             if (isDrawing && e.target.classList.contains('cell')) {
                 const index = parseInt(e.target.dataset.index);
+                
+                // Backtrack logic: if moving to the previous cell in path
+                if (path.length > 1 && index === path[path.length - 2]) {
+                    truncatePath(index);
+                    return;
+                }
+
+                // Add to path logic
                 if (!path.includes(index)) {
                     const lastIndex = path[path.length - 1];
                     if (isAdjacent(lastIndex, index) && canAddToPath(index)) {
-                        path.push(index);
-                        gameState.cellsVisited = path.length;
-                        e.target.style.background = '#4CAF50';
-
-                        const cellNumber = getNumberAtIndex(index);
-                        if (cellNumber === nextNumber) {
-                            nextNumber++;
-                        }
-                        console.log('Path:', path, 'Next number:', nextNumber);
-                        checkWin();
+                        addToPath(index, e.target);
                     }
                 }
             }
