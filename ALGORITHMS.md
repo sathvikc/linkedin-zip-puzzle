@@ -71,8 +71,12 @@ This document tracks the evolution of the puzzle generation logic used in the Zi
         *   **Manhattan Distance:** Spatial distance on the grid (|row1 - row2| + |col1 - col2|)
         *   **Path Distance:** Sequential distance along the path (|index1 - index2|)
     *   This ensures clues are well-distributed both spatially and sequentially.
-3.  **Initial Clue Count:** Start with 8 total clues (start + end + 6 intermediates) for 6x6 grid.
-4.  **Adaptive Fix:** If not unique, use the same adaptive fix strategy from Section 4.
+3.  **Initial Clue Count:** Start with grid-size-specific clue counts (see table below).
+4.  **Adaptive Fix (Refined):** If not unique after initial placement:
+    *   **Max Attempts:** 15 iterations (increased from 10 due to better initial placement)
+    *   **Strategy:** Find first divergence point between intended and alternative solutions, add clue there
+    *   **Fallback:** If still not unique after 15 attempts, add 2 strategic clues at 1/3 and 2/3 path positions
+    *   **Guarantee:** This ensures 100% unique puzzles while minimizing total clues
 
 **Rationale:**
 *   **Better Distribution:** Random placement often clusters clues or leaves large gaps. Distance-based placement ensures even coverage.

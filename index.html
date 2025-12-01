@@ -292,8 +292,11 @@
                 console.log(`Attempt ${attempts + 1} Initial: ${result.count} solution(s)`);
 
                 // Adaptive Fix: If multiple solutions, add clues to force uniqueness
+                // With smart placement, we need fewer fix iterations
+                const maxFixAttempts = 15;
                 let fixAttempts = 0;
-                while (result.count > 1 && fixAttempts < 10) {
+
+                while (result.count > 1 && fixAttempts < maxFixAttempts) {
                     const sol1 = fullPath; // The intended solution
                     const sol2 = result.solutions[0].toString() === fullPath.toString() ? result.solutions[1] : result.solutions[0];
 
@@ -310,17 +313,36 @@
 
                     if (diffIdx !== -1) {
                         // Add a clue at the divergence point
-                        // IMPORTANT: We just add the index to our set and RE-GENERATE the numbers
-                        // This ensures values are always 1, 2, 3... in correct order
                         if (!revealedIndices.has(diffIdx)) {
                             revealedIndices.add(diffIdx);
                             numbers = createPuzzleFromIndices(revealedIndices);
-                            console.log(`Fixing ambiguity at step ${diffIdx + 1} (Cell ${fullPath[diffIdx]})`);
+                            console.log(`Fix ${fixAttempts + 1}: Added clue at step ${diffIdx + 1}`);
                         }
                     }
 
                     result = solvePuzzle(numbers);
                     fixAttempts++;
+                }
+
+                // Fallback: If still not unique after max attempts, add 2 more strategic clues
+                if (result.count > 1 && fixAttempts >= maxFixAttempts) {
+                    console.log(`Fallback: Adding 2 extra clues to force uniqueness`);
+
+                    // Add clues at 1/3 and 2/3 positions if not already revealed
+                    const extraPositions = [
+                        Math.floor(totalCells / 3),
+                        Math.floor(totalCells * 2 / 3)
+                    ];
+
+                    for (const pos of extraPositions) {
+                        if (!revealedIndices.has(pos)) {
+                            revealedIndices.add(pos);
+                        }
+                    }
+
+                    numbers = createPuzzleFromIndices(revealedIndices);
+                    result = solvePuzzle(numbers);
+                    console.log(`After fallback: ${result.count} solution(s), ${revealedIndices.size} total clues`);
                 }
 
                 if (result.count === 1) {
