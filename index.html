@@ -30,6 +30,9 @@
     <div id="grid"></div>
     <button id="new-puzzle">New Puzzle</button>
     <button id="reset">Reset</button>
+    <div id="loading" style="display: none; margin-top: 10px; color: #666;">
+        ⏳ Generating puzzle...
+    </div>
     <div id="debug"
         style="margin-top: 20px; padding: 10px; background: #f0f0f0; font-family: monospace; font-size: 12px;">
         <strong>DEBUG:</strong><br>
@@ -40,6 +43,14 @@
 
     <script type="module">
         import { state, bindDom } from 'https://cdn.jsdelivr.net/npm/lume-js@1.0.0/src/index.js';
+        import * as Comlink from 'comlink';
+        import PuzzleWorker from './js/worker.js?worker';
+
+        // Initialize Web Worker with Comlink
+        const worker = new PuzzleWorker();
+        const puzzleAPI = Comlink.wrap(worker);
+
+        console.log('✅ Worker initialized with Comlink');
 
         const gridSize = 6;
         const grid = document.getElementById('grid');
@@ -188,221 +199,8 @@
 
         let currentSolution = null;
 
-        function generatePuzzle() {
-            let attempts = 0;
-            const maxAttempts = 50; // Fewer attempts needed now since we start with a valid path
-            const totalCells = gridSize * gridSize;
-
-            while (attempts < maxAttempts) {
-                // 1. Generate a valid full path first
-                const fullPath = generateHamiltonianPath();
-                if (!fullPath) continue;
-
-                // 2. Place numbers along the path
-                // Strategy: Keep track of which path indices are "revealed" as clues
-                const revealedIndices = new Set();
-
-                // Always reveal Start (0) and End (35)
-                revealedIndices.add(0);
-                revealedIndices.add(totalCells - 1);
-
-                // Smart clue placement: Use distance-based scoring
-                // Calculate optimal initial clue count based on grid size
-                // Target: 20-30% of grid cells as initial clues
-                const clueConfig = {
-                    25: { intermediate: 4 },  // 5x5: 6 total (24%)
-                    36: { intermediate: 6 },  // 6x6: 8 total (22%)
-                    49: { intermediate: 8 },  // 7x7: 10 total (20%)
-                    64: { intermediate: 10 }  // 8x8: 12 total (19%)
-                };
-
-                const config = clueConfig[totalCells] || { intermediate: 6 }; // Default to 6x6 config
-                const intermediateCount = config.intermediate;
-
-                // Helper function to place clues smartly based on distance
-                function placeCluesSmartly(path, count) {
-                    const clues = [0, path.length - 1]; // Always start and end
-
-                    // For remaining clues, pick cells that maximize distance from existing clues
-                    while (clues.length < count) {
-                        let bestIdx = -1;
-                        let bestScore = -Infinity;
-
-                        for (let i = 1; i < path.length - 1; i++) {
-                            if (clues.includes(i)) continue;
-
-                            // Calculate minimum Manhattan distance to any existing clue
-                            let minManhattanDist = Infinity;
-                            let minPathDist = Infinity;
-
-                            for (let clueIdx of clues) {
-                                const clueCell = path[clueIdx];
-                                const currentCell = path[i];
-
-                                // Manhattan distance (spatial)
-                                const manhattanDist = Math.abs(currentCell.row - clueCell.row) +
-                                    Math.abs(currentCell.col - clueCell.col);
-                                minManhattanDist = Math.min(minManhattanDist, manhattanDist);
-
-                                // Path distance (sequential)
-                                const pathDist = Math.abs(i - clueIdx);
-                                minPathDist = Math.min(minPathDist, pathDist);
-                            }
-
-                            // Score combines spatial and path distance
-                            // Prioritize spatial distance, with path distance as tiebreaker
-                            const score = minManhattanDist + (minPathDist / path.length) * 0.15;
-
-                            if (score > bestScore) {
-                                bestScore = score;
-                                bestIdx = i;
-                            }
-                        }
-
-                        if (bestIdx !== -1) {
-                            clues.push(bestIdx);
-                        } else {
-                            break; // No more valid positions
-                        }
-                    }
-
-                    return clues;
-                }
-
-                // Place clues using smart algorithm
-                const clueIndices = placeCluesSmartly(fullPath, intermediateCount + 2);
-                clueIndices.forEach(idx => revealedIndices.add(idx));
-
-                // Helper to convert revealed indices to puzzle numbers
-                function createPuzzleFromIndices(indicesSet) {
-                    // Sort indices by their position in the path (0..35)
-                    const sortedPathIndices = Array.from(indicesSet).sort((a, b) => a - b);
-
-                    // Map to puzzle format: { index: gridIndex, value: sequential 1..N }
-                    return sortedPathIndices.map((pathIdx, i) => ({
-                        index: fullPath[pathIdx],
-                        value: i + 1
-                    }));
-                }
-
-                numbers = createPuzzleFromIndices(revealedIndices);
-
-                // 3. Check uniqueness and fix if needed
-                let result = solvePuzzle(numbers);
-                console.log(`Attempt ${attempts + 1} Initial: ${result.count} solution(s)`);
-
-                // Adaptive Fix: If multiple solutions, add clues to force uniqueness
-                // With smart placement, we need fewer fix iterations
-                const maxFixAttempts = 15;
-                let fixAttempts = 0;
-
-                while (result.count > 1 && fixAttempts < maxFixAttempts) {
-                    const sol1 = fullPath; // The intended solution
-                    const sol2 = result.solutions[0].toString() === fullPath.toString() ? result.solutions[1] : result.solutions[0];
-
-                    if (!sol2) break;
-
-                    // Find first point of divergence
-                    let diffIdx = -1;
-                    for (let i = 0; i < totalCells; i++) {
-                        if (sol1[i] !== sol2[i]) {
-                            diffIdx = i;
-                            break;
-                        }
-                    }
-
-                    if (diffIdx !== -1) {
-                        // Add a clue at the divergence point
-                        if (!revealedIndices.has(diffIdx)) {
-                            revealedIndices.add(diffIdx);
-                            numbers = createPuzzleFromIndices(revealedIndices);
-                            console.log(`Fix ${fixAttempts + 1}: Added clue at step ${diffIdx + 1}`);
-                        }
-                    }
-
-                    result = solvePuzzle(numbers);
-                    fixAttempts++;
-                }
-
-                // Fallback: If still not unique after max attempts, add 2 more strategic clues
-                if (result.count > 1 && fixAttempts >= maxFixAttempts) {
-                    console.log(`Fallback: Adding 2 extra clues to force uniqueness`);
-
-                    // Add clues at 1/3 and 2/3 positions if not already revealed
-                    const extraPositions = [
-                        Math.floor(totalCells / 3),
-                        Math.floor(totalCells * 2 / 3)
-                    ];
-
-                    for (const pos of extraPositions) {
-                        if (!revealedIndices.has(pos)) {
-                            revealedIndices.add(pos);
-                        }
-                    }
-
-                    numbers = createPuzzleFromIndices(revealedIndices);
-                    result = solvePuzzle(numbers);
-                    console.log(`After fallback: ${result.count} solution(s), ${revealedIndices.size} total clues`);
-                }
-
-                if (result.count === 1) {
-                    // Found a unique solution!
-                    currentSolution = result.solutions[0];
-                    console.log('✅ Found puzzle with unique solution!');
-                    break;
-                }
-
-                attempts++;
-            }
-
-            if (attempts === maxAttempts) {
-                console.warn('⚠️ Could not find unique solution. Using last generated puzzle (might have multiple solutions).');
-                // If we fail to find a unique one, we still have a valid solvable puzzle (fullPath)
-                // We just use that one, even if it might have multiple solutions
-                // Re-solve to get the solution path for the current numbers
-                const result = solvePuzzle(numbers);
-                currentSolution = result.solutions; // Store all found solutions
-            } else {
-                // If unique, wrap in array for consistent display logic
-                currentSolution = [currentSolution];
-            }
-
-            // Render numbers on grid
-            const cells = grid.querySelectorAll('.cell');
-            cells.forEach(cell => {
-                cell.textContent = '';
-            });
-
-            numbers.forEach(n => {
-                cells[n.index].textContent = n.value;
-            });
-
-            console.log('Puzzle generated with unique solution:', numbers);
-            console.log('Full solution(s):', currentSolution);
-
-            // Display solution in debug area
-            const debugDiv = document.getElementById('solution-display');
-            let solutionsHtml = '';
-
-            if (currentSolution && currentSolution.length > 0) {
-                solutionsHtml = currentSolution.map((sol, idx) => `
-                    <div style="margin-bottom: 10px; border-bottom: 1px solid #ccc; padding-bottom: 5px;">
-                        <strong>Solution ${idx + 1} (${sol.length} cells):</strong><br>
-                        ${sol.join(' → ')}
-                    </div>
-                `).join('');
-            } else {
-                solutionsHtml = 'No solution found';
-            }
-
-            debugDiv.innerHTML = `
-                <strong>Puzzle:</strong> ${JSON.stringify(numbers)}<br><br>
-                <strong>Found ${currentSolution ? currentSolution.length : 0} Solution(s):</strong><br>
-                ${solutionsHtml}
-            `;
-        }
-
-        generatePuzzle();
+        // Old generatePuzzle function removed - now handled by Web Worker
+        // See js/worker.js for puzzle generation logic
 
         // Track next expected number
         let nextNumber = 1;
@@ -493,16 +291,62 @@
             isDrawing = false;
         });
 
-        document.getElementById('new-puzzle').addEventListener('click', () => {
+        document.getElementById('new-puzzle').addEventListener('click', async () => {
+            // Reset game state
             path.length = 0;
             nextNumber = 1;
             gameState.cellsVisited = 0;
             const cells = grid.querySelectorAll('.cell');
             cells.forEach(cell => {
                 cell.style.background = '';
+                cell.textContent = '';
             });
-            generatePuzzle();
-            console.log('New puzzle generated');
+
+            // Show loading state
+            const loadingDiv = document.getElementById('loading');
+            const newPuzzleBtn = document.getElementById('new-puzzle');
+            loadingDiv.style.display = 'block';
+            newPuzzleBtn.disabled = true;
+
+            try {
+                console.log('Requesting puzzle from worker...');
+                const result = await puzzleAPI.generatePuzzle();
+
+                if (!result) {
+                    console.error('Worker failed to generate puzzle');
+                    alert('Failed to generate puzzle. Please try again.');
+                    return;
+                }
+
+                console.log(`✅ Received puzzle with ${result.clueCount} clues (generated in ${result.attempts} attempts)`);
+
+                // Store the puzzle data
+                numbers = result.numbers;
+                currentSolution = [result.solution];
+
+                // Render numbers on grid
+                numbers.forEach(({ index, value }) => {
+                    cells[index].textContent = value;
+                });
+
+                // Update debug display
+                const debugDiv = document.getElementById('solution-display');
+                debugDiv.innerHTML = `
+                    <strong>Puzzle:</strong> ${JSON.stringify(numbers)}<br><br>
+                    <strong>✅ Unique Solution (${result.solution.length} cells):</strong><br>
+                    ${result.solution.join(' → ')}
+                `;
+
+            } catch (error) {
+                console.error('Error generating puzzle:', error);
+                alert('Error generating puzzle. Check console for details.');
+            } finally {
+                // Hide loading state
+                loadingDiv.style.display = 'none';
+                newPuzzleBtn.disabled = false;
+            }
+
+            console.log('New puzzle loaded');
         });
 
         document.getElementById('reset').addEventListener('click', () => {
