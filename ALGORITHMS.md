@@ -84,11 +84,13 @@ This document tracks the evolution of the puzzle generation logic used in the Zi
 *   **Success Rate:** >95% unique on first attempt, 100% after adaptive fix.
 *   **Generation Time:** <100ms per puzzle.
 
-**Grid Size Parameters:**
-| Grid Size | Total Cells | Initial Clues | Target Final Clues | Coverage % |
-|-----------|-------------|---------------|-------------------|------------|
-| 5x5       | 25          | 6-8           | 8-10              | 32-40%     |
-| 6x6       | 36          | 8             | 8-12              | 22-33%     |
-| 7x7       | 49          | 10            | 10-14             | 20-29%     |
-| 8x8       | 64          | 12            | 12-16             | 19-25%     |
+**Grid Size Parameters (Implemented):**
+| Grid Size | Total Cells | Initial Clues | Initial Coverage | Target Final Clues | Target Coverage |
+|-----------|-------------|---------------|------------------|-------------------|-----------------|
+| 5x5       | 25          | 6             | 24%              | 6-10              | 24-40%          |
+| 6x6       | 36          | 8             | 22%              | 8-12              | 22-33%          |
+| 7x7       | 49          | 10            | 20%              | 10-14             | 20-29%          |
+| 8x8       | 64          | 12            | 19%              | 12-16             | 19-25%          |
+
+**Note:** Initial clues are calculated as `start + end + intermediate` where intermediate counts are: 5x5=4, 6x6=6, 7x7=8, 8x8=10.
 

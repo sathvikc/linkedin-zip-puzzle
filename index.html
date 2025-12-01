@@ -207,8 +207,17 @@
                 revealedIndices.add(totalCells - 1);
 
                 // Smart clue placement: Use distance-based scoring
-                // Start with 6 intermediate clues (8 total including start/end)
-                const intermediateCount = 6;
+                // Calculate optimal initial clue count based on grid size
+                // Target: 20-30% of grid cells as initial clues
+                const clueConfig = {
+                    25: { intermediate: 4 },  // 5x5: 6 total (24%)
+                    36: { intermediate: 6 },  // 6x6: 8 total (22%)
+                    49: { intermediate: 8 },  // 7x7: 10 total (20%)
+                    64: { intermediate: 10 }  // 8x8: 12 total (19%)
+                };
+
+                const config = clueConfig[totalCells] || { intermediate: 6 }; // Default to 6x6 config
+                const intermediateCount = config.intermediate;
 
                 // Helper function to place clues smartly based on distance
                 function placeCluesSmartly(path, count) {
