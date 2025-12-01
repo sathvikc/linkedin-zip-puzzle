@@ -206,19 +206,63 @@
                 revealedIndices.add(0);
                 revealedIndices.add(totalCells - 1);
 
-                // Reveal 2 intermediate numbers at random intervals (Total 4 initial clues)
-                // We rely on the adaptive fix to add more clues only where strictly necessary
-                const intermediateCount = 2;
-                const segmentSize = Math.floor((totalCells - 2) / (intermediateCount + 1));
+                // Smart clue placement: Use distance-based scoring
+                // Start with 6 intermediate clues (8 total including start/end)
+                const intermediateCount = 6;
 
-                for (let i = 0; i < intermediateCount; i++) {
-                    const baseIdx = (i + 1) * segmentSize;
-                    const randomOffset = Math.floor(Math.random() * segmentSize);
-                    const pathIdx = baseIdx + randomOffset;
-                    if (pathIdx > 0 && pathIdx < totalCells - 1) {
-                        revealedIndices.add(pathIdx);
+                // Helper function to place clues smartly based on distance
+                function placeCluesSmartly(path, count) {
+                    const clues = [0, path.length - 1]; // Always start and end
+
+                    // For remaining clues, pick cells that maximize distance from existing clues
+                    while (clues.length < count) {
+                        let bestIdx = -1;
+                        let bestScore = -Infinity;
+
+                        for (let i = 1; i < path.length - 1; i++) {
+                            if (clues.includes(i)) continue;
+
+                            // Calculate minimum Manhattan distance to any existing clue
+                            let minManhattanDist = Infinity;
+                            let minPathDist = Infinity;
+
+                            for (let clueIdx of clues) {
+                                const clueCell = path[clueIdx];
+                                const currentCell = path[i];
+
+                                // Manhattan distance (spatial)
+                                const manhattanDist = Math.abs(currentCell.row - clueCell.row) +
+                                    Math.abs(currentCell.col - clueCell.col);
+                                minManhattanDist = Math.min(minManhattanDist, manhattanDist);
+
+                                // Path distance (sequential)
+                                const pathDist = Math.abs(i - clueIdx);
+                                minPathDist = Math.min(minPathDist, pathDist);
+                            }
+
+                            // Score combines spatial and path distance
+                            // Prioritize spatial distance, with path distance as tiebreaker
+                            const score = minManhattanDist + (minPathDist / path.length) * 0.15;
+
+                            if (score > bestScore) {
+                                bestScore = score;
+                                bestIdx = i;
+                            }
+                        }
+
+                        if (bestIdx !== -1) {
+                            clues.push(bestIdx);
+                        } else {
+                            break; // No more valid positions
+                        }
                     }
+
+                    return clues;
                 }
+
+                // Place clues using smart algorithm
+                const clueIndices = placeCluesSmartly(fullPath, intermediateCount + 2);
+                clueIndices.forEach(idx => revealedIndices.add(idx));
 
                 // Helper to convert revealed indices to puzzle numbers
                 function createPuzzleFromIndices(indicesSet) {

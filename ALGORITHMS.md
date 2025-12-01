@@ -59,3 +59,36 @@ This document tracks the evolution of the puzzle generation logic used in the Zi
 *   **Success Rate:** 100% Unique & Solvable.
 *   **Quality:** Produces clean puzzles with the minimum necessary clues (usually 5-7 total).
 *   **Robustness:** Solves "duplicate value" bugs by dynamically managing the number sequence.
+
+## 5. Smart Distance-Based Clue Placement (Current)
+
+**Strategy:**
+1.  **Generate Path First:** Same Hamiltonian path generation as before.
+2.  **Smart Initial Placement:** Instead of random intermediate clues, use a distance-based scoring algorithm:
+    *   Always place clues at start (index 0) and end (index N-1).
+    *   For each remaining clue, select the path index that **maximizes** the minimum distance to all existing clues.
+    *   Distance is calculated as: `score = minManhattanDistance + (minPathDistance / pathLength) * 0.15`
+        *   **Manhattan Distance:** Spatial distance on the grid (|row1 - row2| + |col1 - col2|)
+        *   **Path Distance:** Sequential distance along the path (|index1 - index2|)
+    *   This ensures clues are well-distributed both spatially and sequentially.
+3.  **Initial Clue Count:** Start with 8 total clues (start + end + 6 intermediates) for 6x6 grid.
+4.  **Adaptive Fix:** If not unique, use the same adaptive fix strategy from Section 4.
+
+**Rationale:**
+*   **Better Distribution:** Random placement often clusters clues or leaves large gaps. Distance-based placement ensures even coverage.
+*   **Fewer Total Clues:** Well-placed initial clues are more likely to produce unique puzzles, reducing the need for adaptive fixes.
+*   **Scalable:** The algorithm works for any grid size by adjusting the initial clue count.
+
+**Expected Outcome:**
+*   **Target:** 8-12 total clues for 6x6 grid (22-33% coverage) vs. previous ~25 clues (69% coverage).
+*   **Success Rate:** >95% unique on first attempt, 100% after adaptive fix.
+*   **Generation Time:** <100ms per puzzle.
+
+**Grid Size Parameters:**
+| Grid Size | Total Cells | Initial Clues | Target Final Clues | Coverage % |
+|-----------|-------------|---------------|-------------------|------------|
+| 5x5       | 25          | 6-8           | 8-10              | 32-40%     |
+| 6x6       | 36          | 8             | 8-12              | 22-33%     |
+| 7x7       | 49          | 10            | 10-14             | 20-29%     |
+| 8x8       | 64          | 12            | 12-16             | 19-25%     |
+
