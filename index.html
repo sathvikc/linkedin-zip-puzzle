@@ -52,6 +52,44 @@
 
         console.log('✅ Worker initialized with Comlink');
 
+        // Puzzle Queue System
+        const puzzleQueue = [];
+        const MIN_QUEUE_SIZE = 2;
+        let isQueueFilling = false;
+
+        async function ensureQueueFilled() {
+            if (isQueueFilling) return;
+            isQueueFilling = true;
+
+            try {
+                while (puzzleQueue.length < MIN_QUEUE_SIZE) {
+                    console.log('[Queue] Generating background puzzle...');
+                    const result = await puzzleAPI.generatePuzzle();
+                    if (result) {
+                        puzzleQueue.push(result);
+                        console.log(`[Queue] Puzzle added. Size: ${puzzleQueue.length}`);
+
+                        // Update loading text if visible to show we have one ready
+                        const loadingDiv = document.getElementById('loading');
+                        if (loadingDiv.style.display === 'block' && puzzleQueue.length === 1) {
+                            // Optional: could auto-trigger if we were waiting, 
+                            // but simpler to let the button handler wait.
+                        }
+                    } else {
+                        // If generation failed, break to avoid infinite loop
+                        break;
+                    }
+                }
+            } catch (err) {
+                console.error('[Queue] Background generation failed:', err);
+            } finally {
+                isQueueFilling = false;
+            }
+        }
+
+        // Start filling queue immediately
+        ensureQueueFilled();
+
         const gridSize = 6;
         const grid = document.getElementById('grid');
         const path = [];
@@ -309,8 +347,19 @@
             newPuzzleBtn.disabled = true;
 
             try {
-                console.log('Requesting puzzle from worker...');
-                const result = await puzzleAPI.generatePuzzle();
+                let result;
+
+                // Check queue first
+                if (puzzleQueue.length > 0) {
+                    console.log('[Queue] Using pre-generated puzzle');
+                    result = puzzleQueue.shift();
+                } else {
+                    console.log('[Queue] Queue empty, generating immediately...');
+                    result = await puzzleAPI.generatePuzzle();
+                }
+
+                // Trigger background refill
+                ensureQueueFilled();
 
                 if (!result) {
                     console.error('Worker failed to generate puzzle');
@@ -318,7 +367,7 @@
                     return;
                 }
 
-                console.log(`✅ Received puzzle with ${result.clueCount} clues (generated in ${result.attempts} attempts)`);
+                console.log(`✅ Loaded puzzle with ${result.clueCount} clues`);
 
                 // Store the puzzle data
                 numbers = result.numbers;
