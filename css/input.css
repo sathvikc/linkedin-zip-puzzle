@@ -1,0 +1,10 @@
+@import "tailwindcss";
+
+/* Custom styles that can't be easily handled by utility classes */
+.cell {
+    @apply w-[60px] h-[60px] border border-gray-300 flex items-center justify-center text-2xl select-none cursor-pointer bg-white transition-colors duration-200;
+}
+
+.cell:hover {
+    @apply bg-gray-50;
+}

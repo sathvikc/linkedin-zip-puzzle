@@ -5,36 +5,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Zip Puzzle</title>
-    <style>
-        #grid {
-            display: grid;
-            grid-template-columns: repeat(6, 60px);
-            gap: 2px;
-        }
-
-        .cell {
-            width: 60px;
-            height: 60px;
-            border: 1px solid #ccc;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-        }
-    </style>
+    <link rel="stylesheet" href="./css/output.css">
 </head>
 
-<body>
-    <h1>Zip Puzzle</h1>
-    <p>Cells visited: <span data-bind="cellsVisited">0</span> / 36</p>
-    <div id="grid"></div>
-    <button id="new-puzzle">New Puzzle</button>
-    <button id="reset">Reset</button>
+<body class="bg-gray-100 font-sans flex flex-col items-center min-h-screen py-8">
+    <h1 class="text-3xl font-bold mb-4 text-gray-800">Zip Puzzle</h1>
+    <p class="mb-4 text-gray-600">Cells visited: <span data-bind="cellsVisited" class="font-bold">0</span> / 36</p>
+    <div id="grid" class="grid grid-cols-6 gap-0.5 bg-gray-300 p-0.5 rounded shadow-lg mb-6 w-fit mx-auto"></div>
+
+    <div class="flex gap-4 mb-4">
+        <button id="new-puzzle"
+            class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 transition-colors">New
+            Puzzle</button>
+        <button id="reset"
+            class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors">Reset</button>
+    </div>
     <div id="loading" style="display: none; margin-top: 10px; color: #666;">
         ⏳ Generating puzzle...
     </div>
-    <div id="debug"
-        style="margin-top: 20px; padding: 10px; background: #f0f0f0; font-family: monospace; font-size: 12px;">
+    <div id="debug" class="mt-5 p-4 bg-white rounded shadow text-xs font-mono w-full max-w-md overflow-x-auto">
         <strong>DEBUG:</strong><br>
         <div id="solution-display">Generate a puzzle to see solution...</div>
     </div>
@@ -323,14 +312,14 @@
                     nextNumber++;
                 }
             });
-            
+
             console.log('Backtracked to:', targetIndex, 'Path:', path, 'Next:', nextNumber);
         }
 
         grid.addEventListener('mousedown', (e) => {
             if (e.target.classList.contains('cell')) {
                 const index = parseInt(e.target.dataset.index);
-                
+
                 // Case 1: Resume from last cell
                 if (path.length > 0 && index === path[path.length - 1]) {
                     isDrawing = true;
@@ -364,7 +353,7 @@
                     nextNumber = 1;
                     const cells = grid.querySelectorAll('.cell');
                     cells.forEach(c => c.style.background = '');
-                    
+
                     isDrawing = true;
                     addToPath(index, e.target);
                     return;
@@ -381,7 +370,7 @@
         grid.addEventListener('mousemove', (e) => {
             if (isDrawing && e.target.classList.contains('cell')) {
                 const index = parseInt(e.target.dataset.index);
-                
+
                 // Backtrack logic: if moving to the previous cell in path
                 if (path.length > 1 && index === path[path.length - 2]) {
                     truncatePath(index);
