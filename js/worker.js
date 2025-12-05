@@ -2,28 +2,17 @@
 // Uses Comlink for clean async communication with main thread
 
 import * as Comlink from 'comlink';
-
-const gridSize = 6; // TODO: Make this configurable
+import { GRID_SIZE, isAdjacent } from './puzzle.js';
 
 // Solver to check if puzzle has unique solution
 function solvePuzzle(puzzleNumbers) {
-    const totalCells = gridSize * gridSize;
+    const totalCells = GRID_SIZE * GRID_SIZE;
     let solutionCount = 0;
     const solutions = [];
 
     function getNumberAtIdx(idx) {
         const n = puzzleNumbers.find(n => n.index === idx);
         return n ? n.value : null;
-    }
-
-    function isAdjacentIdx(idx1, idx2) {
-        const row1 = Math.floor(idx1 / gridSize);
-        const col1 = idx1 % gridSize;
-        const row2 = Math.floor(idx2 / gridSize);
-        const col2 = idx2 % gridSize;
-        const rowDiff = Math.abs(row1 - row2);
-        const colDiff = Math.abs(col1 - col2);
-        return (rowDiff === 1 && colDiff === 0) || (rowDiff === 0 && colDiff === 1);
     }
 
     function solve(currentPath, visited, nextNum) {
@@ -40,7 +29,7 @@ function solvePuzzle(puzzleNumbers) {
         // Try all possible next cells
         for (let idx = 0; idx < totalCells; idx++) {
             if (visited.has(idx)) continue;
-            if (!isAdjacentIdx(lastIdx, idx)) continue;
+            if (!isAdjacent(lastIdx, idx)) continue;
 
             const cellNum = getNumberAtIdx(idx);
 
@@ -67,21 +56,21 @@ function solvePuzzle(puzzleNumbers) {
 
 // Generate a random Hamiltonian path (visits every cell exactly once)
 function generateHamiltonianPath() {
-    const totalCells = gridSize * gridSize;
+    const totalCells = GRID_SIZE * GRID_SIZE;
     const path = [];
     const visited = new Set();
 
     function getNeighbors(idx) {
         const neighbors = [];
-        const row = Math.floor(idx / gridSize);
-        const col = idx % gridSize;
+        const row = Math.floor(idx / GRID_SIZE);
+        const col = idx % GRID_SIZE;
         const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1]];
 
         for (const [dr, dc] of dirs) {
             const r = row + dr;
             const c = col + dc;
-            if (r >= 0 && r < gridSize && c >= 0 && c < gridSize) {
-                neighbors.push(r * gridSize + c);
+            if (r >= 0 && r < GRID_SIZE && c >= 0 && c < GRID_SIZE) {
+                neighbors.push(r * GRID_SIZE + c);
             }
         }
         // Shuffle neighbors for randomness
@@ -124,8 +113,8 @@ function generateHamiltonianPath() {
     if (backtrack(startIdx)) {
         // Convert path indices to {row, col} objects for easier use
         return path.map(idx => ({
-            row: Math.floor(idx / gridSize),
-            col: idx % gridSize,
+            row: Math.floor(idx / GRID_SIZE),
+            col: idx % GRID_SIZE,
             index: idx
         }));
     }
@@ -134,7 +123,7 @@ function generateHamiltonianPath() {
 
 // Main puzzle generation function
 function generatePuzzle() {
-    const totalCells = gridSize * gridSize;
+    const totalCells = GRID_SIZE * GRID_SIZE;
     const maxAttempts = 50;
     let attempts = 0;
 

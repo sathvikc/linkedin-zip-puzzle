@@ -3,6 +3,9 @@ import * as Comlink from 'comlink';
 import PuzzleWorker from './worker.js?worker';
 
 // Initialize Web Worker with Comlink
+import { GRID_SIZE, isAdjacent } from './puzzle.js';
+
+// Initialize Web Worker with Comlink
 const worker = new PuzzleWorker();
 const puzzleAPI = Comlink.wrap(worker);
 
@@ -24,16 +27,16 @@ async function ensureQueueFilled() {
             if (result) {
                 puzzleQueue.push(result);
                 console.log(`[Queue] Puzzle added. Size: ${puzzleQueue.length}`);
-                
+
                 // Update loading text if visible to show we have one ready
                 const loadingDiv = document.getElementById('loading');
                 if (loadingDiv && loadingDiv.style.display === 'block' && puzzleQueue.length === 1) {
-                        // Optional: could auto-trigger if we were waiting, 
-                        // but simpler to let the button handler wait.
+                    // Optional: could auto-trigger if we were waiting, 
+                    // but simpler to let the button handler wait.
                 }
             } else {
                 // If generation failed, break to avoid infinite loop
-                break; 
+                break;
             }
         }
     } catch (err) {
@@ -46,7 +49,6 @@ async function ensureQueueFilled() {
 // Start filling queue immediately
 ensureQueueFilled();
 
-const gridSize = 6;
 const grid = document.getElementById('grid');
 const path = [];
 
@@ -58,7 +60,7 @@ const gameState = state({
 bindDom(document.body, gameState);
 
 // Create grid cells
-for (let i = 0; i < gridSize * gridSize; i++) {
+for (let i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
     const cell = document.createElement('div');
     cell.className = 'cell';
     cell.dataset.index = i;
@@ -77,17 +79,6 @@ function getNumberAtIndex(idx) {
     return num ? num.value : null;
 }
 
-// Check if two cells are adjacent
-function isAdjacent(idx1, idx2) {
-    const row1 = Math.floor(idx1 / gridSize);
-    const col1 = idx1 % gridSize;
-    const row2 = Math.floor(idx2 / gridSize);
-    const col2 = idx2 % gridSize;
-    const rowDiff = Math.abs(row1 - row2);
-    const colDiff = Math.abs(col1 - col2);
-    return (rowDiff === 1 && colDiff === 0) || (rowDiff === 0 && colDiff === 1);
-}
-
 function canAddToPath(idx) {
     const cellNumber = getNumberAtIndex(idx);
 
@@ -104,7 +95,7 @@ function canAddToPath(idx) {
 let isDrawing = false;
 
 function checkWin() {
-    if (path.length === gridSize * gridSize) {
+    if (path.length === GRID_SIZE * GRID_SIZE) {
         console.log('🎉 You won!');
         setTimeout(() => {
             alert('🎉 Congratulations! You solved the puzzle!');
@@ -152,14 +143,14 @@ function truncatePath(targetIndex) {
             nextNumber++;
         }
     });
-    
+
     console.log('Backtracked to:', targetIndex, 'Path:', path, 'Next:', nextNumber);
 }
 
 grid.addEventListener('mousedown', (e) => {
     if (e.target.classList.contains('cell')) {
         const index = parseInt(e.target.dataset.index);
-        
+
         // Case 1: Resume from last cell
         if (path.length > 0 && index === path[path.length - 1]) {
             isDrawing = true;
@@ -193,7 +184,7 @@ grid.addEventListener('mousedown', (e) => {
             nextNumber = 1;
             const cells = grid.querySelectorAll('.cell');
             cells.forEach(c => c.style.background = '');
-            
+
             isDrawing = true;
             addToPath(index, e.target);
             return;
@@ -210,7 +201,7 @@ grid.addEventListener('mousedown', (e) => {
 grid.addEventListener('mousemove', (e) => {
     if (isDrawing && e.target.classList.contains('cell')) {
         const index = parseInt(e.target.dataset.index);
-        
+
         // Backtrack logic: if moving to the previous cell in path
         if (path.length > 1 && index === path[path.length - 2]) {
             truncatePath(index);
@@ -241,16 +232,16 @@ document.getElementById('new-puzzle').addEventListener('click', async () => {
         cell.style.background = '';
         cell.textContent = '';
     });
-    
+
     // Show loading state
     const loadingDiv = document.getElementById('loading');
     const newPuzzleBtn = document.getElementById('new-puzzle');
     loadingDiv.style.display = 'block';
     newPuzzleBtn.disabled = true;
-    
+
     try {
         let result;
-        
+
         // Check queue first
         if (puzzleQueue.length > 0) {
             console.log('[Queue] Using pre-generated puzzle');
@@ -259,27 +250,27 @@ document.getElementById('new-puzzle').addEventListener('click', async () => {
             console.log('[Queue] Queue empty, generating immediately...');
             result = await puzzleAPI.generatePuzzle();
         }
-        
+
         // Trigger background refill
         ensureQueueFilled();
-        
+
         if (!result) {
             console.error('Worker failed to generate puzzle');
             alert('Failed to generate puzzle. Please try again.');
             return;
         }
-        
+
         console.log(`✅ Loaded puzzle with ${result.clueCount} clues`);
-        
+
         // Store the puzzle data
         numbers = result.numbers;
         currentSolution = [result.solution];
-        
+
         // Render numbers on grid
         numbers.forEach(({ index, value }) => {
             cells[index].textContent = value;
         });
-        
+
         // Update debug display
         const debugDiv = document.getElementById('solution-display');
         debugDiv.innerHTML = `
@@ -287,7 +278,7 @@ document.getElementById('new-puzzle').addEventListener('click', async () => {
             <strong>✅ Unique Solution (${result.solution.length} cells):</strong><br>
             ${result.solution.join(' → ')}
         `;
-        
+
     } catch (error) {
         console.error('Error generating puzzle:', error);
         alert('Error generating puzzle. Check console for details.');
@@ -296,7 +287,7 @@ document.getElementById('new-puzzle').addEventListener('click', async () => {
         loadingDiv.style.display = 'none';
         newPuzzleBtn.disabled = false;
     }
-    
+
     console.log('New puzzle loaded');
 });
 
