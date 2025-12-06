@@ -183,9 +183,6 @@
   .visible {
     visibility: visible;
   }
-  .static {
-    position: static;
-  }
   .mx-auto {
     margin-inline: auto;
   }
@@ -339,6 +336,7 @@
   }
 }
 .cell {
+  position: relative;
   display: flex;
   height: 60px;
   width: 60px;
@@ -358,6 +356,14 @@
   transition-duration: 200ms;
   -webkit-user-select: none;
   user-select: none;
+}
+.cell-index {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-size: 10px;
+  color: #9ca3af;
+  pointer-events: none;
 }
 .cell:hover {
   background-color: var(--color-gray-50);

@@ -2,7 +2,17 @@
 
 /* Custom styles that can't be easily handled by utility classes */
 .cell {
-    @apply w-[60px] h-[60px] border border-gray-300 flex items-center justify-center text-2xl select-none cursor-pointer bg-white transition-colors duration-200;
+    @apply w-[60px] h-[60px] border border-gray-300 flex items-center justify-center text-2xl select-none cursor-pointer bg-white transition-colors duration-200 relative;
+}
+
+.cell-index {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    font-size: 10px;
+    color: #9ca3af;
+    /* gray-400 */
+    pointer-events: none;
 }
 
 .cell:hover {

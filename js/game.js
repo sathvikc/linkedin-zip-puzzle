@@ -64,6 +64,13 @@ for (let i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
     const cell = document.createElement('div');
     cell.className = 'cell';
     cell.dataset.index = i;
+
+    // Debug index
+    const indexSpan = document.createElement('span');
+    indexSpan.className = 'cell-index';
+    indexSpan.textContent = i;
+    cell.appendChild(indexSpan);
+
     grid.appendChild(cell);
 }
 
@@ -190,11 +197,7 @@ grid.addEventListener('mousedown', (e) => {
             return;
         }
 
-        // Case 5: Start new path (empty path)
-        if (path.length === 0 && canAddToPath(index)) {
-            isDrawing = true;
-            addToPath(index, e.target);
-        }
+
     }
 });
 
@@ -222,15 +225,20 @@ grid.addEventListener('mouseup', () => {
     isDrawing = false;
 });
 
-document.getElementById('new-puzzle').addEventListener('click', async () => {
+async function loadNewPuzzle() {
     // Reset game state
     path.length = 0;
     nextNumber = 1;
     gameState.cellsVisited = 0;
     const cells = grid.querySelectorAll('.cell');
     cells.forEach(cell => {
+        // Clear background but KEEP the debug index span
         cell.style.background = '';
+        // Clear text content but restore debug index
+        const indexSpan = cell.querySelector('.cell-index');
+        const index = cell.dataset.index;
         cell.textContent = '';
+        if (indexSpan) cell.appendChild(indexSpan);
     });
 
     // Show loading state
@@ -268,7 +276,16 @@ document.getElementById('new-puzzle').addEventListener('click', async () => {
 
         // Render numbers on grid
         numbers.forEach(({ index, value }) => {
-            cells[index].textContent = value;
+            // Append value text/element alongside the debug index
+            const cell = cells[index];
+            // We want to show the number safely. 
+            // The cell currently has a debug span. 
+            // We can add the number as a text node or another span.
+            // Simplest way to not clobber the debug span:
+            const valSpan = document.createElement('span');
+            valSpan.textContent = value;
+            valSpan.style.pointerEvents = 'none'; // Ensure clicks pass through to cell
+            cell.appendChild(valSpan);
         });
 
         // Update debug display
@@ -289,7 +306,12 @@ document.getElementById('new-puzzle').addEventListener('click', async () => {
     }
 
     console.log('New puzzle loaded');
-});
+}
+
+// Auto-load on startup
+loadNewPuzzle();
+
+document.getElementById('new-puzzle').addEventListener('click', loadNewPuzzle);
 
 document.getElementById('reset').addEventListener('click', () => {
     path.length = 0;
