@@ -104,9 +104,10 @@ let isDrawing = false;
 function checkWin() {
     if (path.length === GRID_SIZE * GRID_SIZE) {
         console.log('🎉 You won!');
-        setTimeout(() => {
-            alert('🎉 Congratulations! You solved the puzzle!');
-        }, 100);
+        // Show win overlay
+        const overlay = document.getElementById('win-overlay');
+        overlay.classList.remove('hidden');
+        overlay.classList.add('flex');
         return true;
     }
     return false;
@@ -196,8 +197,6 @@ grid.addEventListener('mousedown', (e) => {
             addToPath(index, e.target);
             return;
         }
-
-
     }
 });
 
@@ -312,6 +311,20 @@ async function loadNewPuzzle() {
 loadNewPuzzle();
 
 document.getElementById('new-puzzle').addEventListener('click', loadNewPuzzle);
+
+// Overlay Event Listeners
+document.getElementById('overlay-new-puzzle').addEventListener('click', () => {
+    const overlay = document.getElementById('win-overlay');
+    overlay.classList.add('hidden');
+    overlay.classList.remove('flex');
+    loadNewPuzzle();
+});
+
+document.getElementById('overlay-exit').addEventListener('click', () => {
+    const overlay = document.getElementById('win-overlay');
+    overlay.classList.add('hidden');
+    overlay.classList.remove('flex');
+});
 
 document.getElementById('reset').addEventListener('click', () => {
     path.length = 0;
