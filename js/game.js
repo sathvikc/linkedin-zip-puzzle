@@ -54,10 +54,49 @@ const path = [];
 
 // Reactive state with Lume.js
 const gameState = state({
-    cellsVisited: 0
+    cellsVisited: 0,
+    formattedTime: '00:00'
 });
 
 bindDom(document.body, gameState);
+
+// Timer State
+let timerInterval = null;
+let elapsedSeconds = 0;
+let isTimerRunning = false;
+
+function formatTime(seconds) {
+    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+    const s = (seconds % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+}
+
+function updateTimerDisplay() {
+    gameState.formattedTime = formatTime(elapsedSeconds);
+}
+
+function startTimer() {
+    if (isTimerRunning) return;
+    isTimerRunning = true;
+    timerInterval = setInterval(() => {
+        elapsedSeconds++;
+        updateTimerDisplay();
+    }, 1000);
+}
+
+function stopTimer() {
+    if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+    }
+    isTimerRunning = false;
+}
+
+function resetTimer() {
+    stopTimer();
+    elapsedSeconds = 0;
+    updateTimerDisplay();
+}
 
 // Create grid cells
 for (let i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
@@ -104,6 +143,7 @@ let isDrawing = false;
 function checkWin() {
     if (path.length === GRID_SIZE * GRID_SIZE) {
         console.log('🎉 You won!');
+        stopTimer();
         // Show win overlay
         const overlay = document.getElementById('win-overlay');
         overlay.classList.remove('hidden');
@@ -190,6 +230,12 @@ grid.addEventListener('mousedown', (e) => {
             path.length = 0;
             gameState.cellsVisited = 0;
             nextNumber = 1;
+
+            // Allow timer reset/start logic here if needed, but usually we just start it
+            // if it was previously stopped/reset by 'New Puzzle'.
+            // Simple approach: Start timer if not running and we are starting a valid path.
+            if (!isTimerRunning) startTimer();
+
             const cells = grid.querySelectorAll('.cell');
             cells.forEach(c => c.style.background = '');
 
@@ -229,6 +275,7 @@ async function loadNewPuzzle() {
     path.length = 0;
     nextNumber = 1;
     gameState.cellsVisited = 0;
+    resetTimer(); // Reset timer on load
     const cells = grid.querySelectorAll('.cell');
     cells.forEach(cell => {
         // Clear background but KEEP the debug index span
@@ -330,6 +377,7 @@ document.getElementById('reset').addEventListener('click', () => {
     path.length = 0;
     nextNumber = 1;
     gameState.cellsVisited = 0;
+    resetTimer();
     const cells = grid.querySelectorAll('.cell');
     cells.forEach(cell => {
         cell.style.background = '';
