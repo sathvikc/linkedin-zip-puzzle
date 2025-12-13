@@ -1,4 +1,4 @@
-import { state, bindDom } from 'https://cdn.jsdelivr.net/npm/lume-js@1.0.0/src/index.js';
+import { state, bindDom } from 'lume-js';
 import * as Comlink from 'comlink';
 import PuzzleWorker from './worker.js?worker';
 

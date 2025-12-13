@@ -27,6 +27,7 @@
         "vite": "^5.4.11"
     },
     "dependencies": {
-        "comlink": "^4.4.2"
+        "comlink": "^4.4.2",
+        "lume-js": "^1.0.0"
     }
 }
