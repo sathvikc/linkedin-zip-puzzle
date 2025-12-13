@@ -2,6 +2,11 @@
     "name": "linkedin-zip-puzzle",
     "version": "0.1.0",
     "description": "Browser-based LinkedIn Zip puzzle game showcasing lume-js, Web Workers, and modern web capabilities",
+    "homepage": "https://sathvikc.github.io/linkedin-zip-puzzle/",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/sathvikc/linkedin-zip-puzzle.git"
+    },
     "type": "module",
     "scripts": {
         "dev": "vite",
@@ -15,7 +20,10 @@
         "linkedin-zip",
         "lume-js",
         "web-workers",
-        "indexeddb"
+        "indexeddb",
+        "vite",
+        "tailwindcss",
+        "logic-puzzle"
     ],
     "author": "Sathvik C",
     "license": "MIT",
