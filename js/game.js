@@ -1,4 +1,5 @@
-import { state, bindDom } from 'lume-js';
+import { state, bindDom, effect } from 'lume-js';
+import { computed, repeat } from 'lume-js/addons';
 import * as Comlink from 'comlink';
 import PuzzleWorker from './worker.js?worker';
 
@@ -49,38 +50,67 @@ async function ensureQueueFilled() {
 // Start filling queue immediately
 ensureQueueFilled();
 
+// ============================================================================
+// CLEANUP TRACKING
+// ============================================================================
+const disposables = [];
+
+function addDisposable(cleanup) {
+    if (typeof cleanup === 'function') {
+        disposables.push(cleanup);
+    }
+}
+
+// Expose cleanup for hot-reloading or testing
+window.disposeGame = () => {
+    console.log('[Cleanup] Disposing game resources...');
+    disposables.forEach(cleanup => cleanup());
+    disposables.length = 0;
+    console.log('[Cleanup] All resources disposed');
+};
+
 const grid = document.getElementById('grid');
 const path = [];
 
 // Reactive state with Lume.js
 const gameState = state({
     cellsVisited: 0,
+    elapsedSeconds: 0,
     formattedTime: '00:00'
 });
 
-bindDom(document.body, gameState);
+addDisposable(bindDom(document.body, gameState));
 
-// Timer State
-let timerInterval = null;
-let elapsedSeconds = 0;
-let isTimerRunning = false;
-
-function formatTime(seconds) {
+// Computed timer value
+const formattedTime = computed(() => {
+    const seconds = gameState.elapsedSeconds;
     const m = Math.floor(seconds / 60).toString().padStart(2, '0');
     const s = (seconds % 60).toString().padStart(2, '0');
     return `${m}:${s}`;
-}
+});
 
-function updateTimerDisplay() {
-    gameState.formattedTime = formatTime(elapsedSeconds);
-}
+// Sync computed time to gameState (so bindDom can display it)
+addDisposable(
+    effect(() => {
+        // Access elapsedSeconds to track it as a dependency
+        const seconds = gameState.elapsedSeconds;
+        const formatted = formattedTime.value;
+        console.log('[Timer] Effect triggered. Seconds:', seconds, 'Formatted:', formatted);
+        gameState.formattedTime = formatted;
+    })
+);
+
+// Timer State
+let timerInterval = null;
+let isTimerRunning = false;
 
 function startTimer() {
     if (isTimerRunning) return;
+    console.log('[Timer] Starting timer...');
     isTimerRunning = true;
     timerInterval = setInterval(() => {
-        elapsedSeconds++;
-        updateTimerDisplay();
+        gameState.elapsedSeconds++;
+        console.log('[Timer] Tick:', gameState.elapsedSeconds);
     }, 1000);
 }
 
@@ -94,26 +124,57 @@ function stopTimer() {
 
 function resetTimer() {
     stopTimer();
-    elapsedSeconds = 0;
-    updateTimerDisplay();
+    gameState.elapsedSeconds = 0;
 }
 
-// Create grid cells
-for (let i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
-    const cell = document.createElement('div');
-    cell.className = 'cell';
-    cell.dataset.index = i;
+// Initialize cells in state
+gameState.cells = Array.from({ length: GRID_SIZE * GRID_SIZE }, (_, i) => ({
+    id: i,
+    index: i,
+    value: null
+}));
 
-    // Debug index
-    const indexSpan = document.createElement('span');
-    indexSpan.className = 'cell-index';
-    indexSpan.textContent = i;
-    cell.appendChild(indexSpan);
+// Render grid with repeat
+addDisposable(
+    repeat(grid, gameState, 'cells', {
+        key: cell => cell.id,
+        render: (cellData, el) => {
+            // One-time initialization
+            if (!el.dataset.init) {
+                el.className = 'cell';
+                el.dataset.index = cellData.index;
 
-    grid.appendChild(cell);
-}
+                // Debug index span
+                const indexSpan = document.createElement('span');
+                indexSpan.className = 'cell-index';
+                indexSpan.textContent = cellData.index;
+                el.appendChild(indexSpan);
 
-// Puzzle data
+                el.dataset.init = 'true';
+            }
+
+            // Updates on every render
+            // Check if this cell is in the path
+            const isInPath = path.includes(cellData.index);
+            el.style.background = isInPath ? '#4CAF50' : '';
+
+            // Update puzzle number display
+            let valSpan = el.querySelector('span:not(.cell-index)');
+            if (cellData.value !== null) {
+                if (!valSpan) {
+                    valSpan = document.createElement('span');
+                    valSpan.style.pointerEvents = 'none';
+                    el.appendChild(valSpan);
+                }
+                valSpan.textContent = cellData.value;
+            } else if (valSpan) {
+                valSpan.remove();
+            }
+        }
+    })
+);
+
+// Puzzle data (old numbers array, to be migrated)
 let numbers = [];
 let currentSolution = null;
 
@@ -140,31 +201,35 @@ function canAddToPath(idx) {
 // Handle drag drawing
 let isDrawing = false;
 
-function checkWin() {
-    if (path.length === GRID_SIZE * GRID_SIZE) {
-        console.log('🎉 You won!');
-        stopTimer();
-        // Show win overlay
-        const overlay = document.getElementById('win-overlay');
-        overlay.classList.remove('hidden');
-        overlay.classList.add('flex');
-        return true;
-    }
-    return false;
-}
+// Win detection via effect
+addDisposable(
+    effect(() => {
+        // Track reactive state: cellsVisited
+        if (gameState.cellsVisited === GRID_SIZE * GRID_SIZE) {
+            console.log('🎉 Win detected via effect!');
+            stopTimer();
+
+            // Show win overlay
+            const overlay = document.getElementById('win-overlay');
+            overlay.classList.remove('hidden');
+            overlay.classList.add('flex');
+        }
+    })
+);
 
 // Helper to add a cell to the path
-function addToPath(index, element) {
+function addToPath(index) {
     path.push(index);
     gameState.cellsVisited = path.length;
-    element.style.background = '#4CAF50';
 
     const cellNumber = getNumberAtIndex(index);
     if (cellNumber === nextNumber) {
         nextNumber++;
     }
     console.log('Path:', path, 'Next number:', nextNumber);
-    checkWin();
+
+    // Trigger re-render
+    gameState.cells = [...gameState.cells];
 }
 
 // Helper to truncate path (undo/backtrack)
@@ -177,12 +242,6 @@ function truncatePath(targetIndex) {
     path.length = targetPos + 1;
     gameState.cellsVisited = path.length;
 
-    // Reset UI for removed cells
-    const cells = grid.querySelectorAll('.cell');
-    removedCells.forEach(idx => {
-        cells[idx].style.background = '';
-    });
-
     // Recalculate nextNumber
     nextNumber = 1;
     path.forEach(idx => {
@@ -193,6 +252,9 @@ function truncatePath(targetIndex) {
     });
 
     console.log('Backtracked to:', targetIndex, 'Path:', path, 'Next:', nextNumber);
+
+    // Trigger re-render
+    gameState.cells = [...gameState.cells];
 }
 
 grid.addEventListener('mousedown', (e) => {
@@ -217,13 +279,12 @@ grid.addEventListener('mousedown', (e) => {
             const lastIndex = path[path.length - 1];
             if (isAdjacent(lastIndex, index) && canAddToPath(index)) {
                 isDrawing = true;
-                addToPath(index, e.target);
+                addToPath(index);
                 return;
             }
         }
 
-        // Case 4: Start new path (only if clicking 1 or path empty)
-        // If clicking '1', reset and start
+        // Case 4: Start new path (only if clicking 1)
         const cellNumber = getNumberAtIndex(index);
         if (cellNumber === 1) {
             // Reset everything
@@ -231,16 +292,10 @@ grid.addEventListener('mousedown', (e) => {
             gameState.cellsVisited = 0;
             nextNumber = 1;
 
-            // Allow timer reset/start logic here if needed, but usually we just start it
-            // if it was previously stopped/reset by 'New Puzzle'.
-            // Simple approach: Start timer if not running and we are starting a valid path.
             if (!isTimerRunning) startTimer();
 
-            const cells = grid.querySelectorAll('.cell');
-            cells.forEach(c => c.style.background = '');
-
             isDrawing = true;
-            addToPath(index, e.target);
+            addToPath(index);
             return;
         }
     }
@@ -260,7 +315,7 @@ grid.addEventListener('mousemove', (e) => {
         if (!path.includes(index)) {
             const lastIndex = path[path.length - 1];
             if (isAdjacent(lastIndex, index) && canAddToPath(index)) {
-                addToPath(index, e.target);
+                addToPath(index);
             }
         }
     }
@@ -275,17 +330,7 @@ async function loadNewPuzzle() {
     path.length = 0;
     nextNumber = 1;
     gameState.cellsVisited = 0;
-    resetTimer(); // Reset timer on load
-    const cells = grid.querySelectorAll('.cell');
-    cells.forEach(cell => {
-        // Clear background but KEEP the debug index span
-        cell.style.background = '';
-        // Clear text content but restore debug index
-        const indexSpan = cell.querySelector('.cell-index');
-        const index = cell.dataset.index;
-        cell.textContent = '';
-        if (indexSpan) cell.appendChild(indexSpan);
-    });
+    resetTimer();
 
     // Show loading state
     const loadingDiv = document.getElementById('loading');
@@ -316,28 +361,27 @@ async function loadNewPuzzle() {
 
         console.log(`✅ Loaded puzzle with ${result.clueCount} clues`);
 
-        // Store the puzzle data
-        numbers = result.numbers;
-        currentSolution = [result.solution];
+        // Reset numbers array
+        numbers = [];
 
-        // Render numbers on grid
-        numbers.forEach(({ index, value }) => {
-            // Append value text/element alongside the debug index
-            const cell = cells[index];
-            // We want to show the number safely. 
-            // The cell currently has a debug span. 
-            // We can add the number as a text node or another span.
-            // Simplest way to not clobber the debug span:
-            const valSpan = document.createElement('span');
-            valSpan.textContent = value;
-            valSpan.style.pointerEvents = 'none'; // Ensure clicks pass through to cell
-            cell.appendChild(valSpan);
+        // Clear all cell values first
+        gameState.cells.forEach(cell => {
+            cell.value = null;
         });
+
+        // Set puzzle numbers
+        result.numbers.forEach(({ index, value }) => {
+            numbers.push({ index, value }); // Keep for getNumberAtIndex
+            gameState.cells[index].value = value;
+        });
+
+        // Trigger re-render with immutable update
+        gameState.cells = [...gameState.cells];
 
         // Update debug display
         const debugDiv = document.getElementById('solution-display');
         debugDiv.innerHTML = `
-            <strong>Puzzle:</strong> ${JSON.stringify(numbers)}<br><br>
+            <strong>Puzzle:</strong> ${JSON.stringify(result.numbers)}<br><br>
             <strong>✅ Unique Solution (${result.solution.length} cells):</strong><br>
             ${result.solution.join(' → ')}
         `;
