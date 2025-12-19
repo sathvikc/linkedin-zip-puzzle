@@ -379,12 +379,12 @@ async function loadNewPuzzle() {
         gameState.cells = [...gameState.cells];
 
         // Update debug display
-        const debugDiv = document.getElementById('solution-display');
-        debugDiv.innerHTML = `
-            <strong>Puzzle:</strong> ${JSON.stringify(result.numbers)}<br><br>
-            <strong>✅ Unique Solution (${result.solution.length} cells):</strong><br>
-            ${result.solution.join(' → ')}
-        `;
+        // const debugDiv = document.getElementById('solution-display');
+        // debugDiv.innerHTML = `
+        //     <strong>Puzzle:</strong> ${JSON.stringify(result.numbers)}<br><br>
+        //     <strong>✅ Unique Solution (${result.solution.length} cells):</strong><br>
+        //     ${result.solution.join(' → ')}
+        // `;
 
     } catch (error) {
         console.error('Error generating puzzle:', error);
