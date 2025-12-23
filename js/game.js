@@ -70,33 +70,52 @@ window.disposeGame = () => {
 };
 
 const grid = document.getElementById('grid');
-const path = [];
 
 // Reactive state with Lume.js
 const gameState = state({
-    cellsVisited: 0,
+    path: [],
     elapsedSeconds: 0,
-    formattedTime: '00:00'
+    formattedTime: '00:00',
+    cells: Array.from({ length: GRID_SIZE * GRID_SIZE }, (_, i) => ({
+        id: i,
+        index: i,
+        value: null
+    }))
 });
 
 addDisposable(bindDom(document.body, gameState));
 
-// Computed timer value
-const formattedTime = computed(() => {
-    const seconds = gameState.elapsedSeconds;
-    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
-    const s = (seconds % 60).toString().padStart(2, '0');
-    return `${m}:${s}`;
-});
-
-// Sync computed time to gameState (so bindDom can display it)
+// Sync formatted time reactively
 addDisposable(
     effect(() => {
-        // Access elapsedSeconds to track it as a dependency
         const seconds = gameState.elapsedSeconds;
-        const formatted = formattedTime.value;
-        console.log('[Timer] Effect triggered. Seconds:', seconds, 'Formatted:', formatted);
-        gameState.formattedTime = formatted;
+        const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+        const s = (seconds % 60).toString().padStart(2, '0');
+        gameState.formattedTime = `${m}:${s}`;
+    })
+);
+
+// Computed next expected number
+const nextNumber = computed(() => {
+    let next = 1;
+    gameState.path.forEach(idx => {
+        const num = getNumberAtIndex(idx);
+        if (num === next) {
+            next++;
+        }
+    });
+    return next;
+});
+
+// nextNumber computed can stay as is if used elsewhere, 
+// but we need to ensure it's accessed correctly if it's supposed to be reactive in another place.
+// For now, let's see if nextNumber is used in canAddToPath which is NOT reactive (it's called in event handlers).
+// In event handlers, accessing .value is fine as it always returns the latest cached value.
+
+// Track cellsVisited reactively
+addDisposable(
+    effect(() => {
+        gameState.cellsVisited = gameState.path.length;
     })
 );
 
@@ -110,7 +129,6 @@ function startTimer() {
     isTimerRunning = true;
     timerInterval = setInterval(() => {
         gameState.elapsedSeconds++;
-        console.log('[Timer] Tick:', gameState.elapsedSeconds);
     }, 1000);
 }
 
@@ -126,13 +144,6 @@ function resetTimer() {
     stopTimer();
     gameState.elapsedSeconds = 0;
 }
-
-// Initialize cells in state
-gameState.cells = Array.from({ length: GRID_SIZE * GRID_SIZE }, (_, i) => ({
-    id: i,
-    index: i,
-    value: null
-}));
 
 // Render grid with repeat
 addDisposable(
@@ -163,53 +174,64 @@ addDisposable(
                 el.appendChild(indexSpan);
 
                 el.dataset.init = 'true';
-            }
 
-            // Updates on every render
-            const idx = cellData.index;
-            const pathIdx = path.indexOf(idx);
-            const isInPath = pathIdx !== -1;
+                // Setup RE-RENDER EFFECT for this specific cell
+                // Using an effect here makes the cell UI automatically reactive to gameState.path
+                // and gameState.cells without needing a full grid re-render.
+                const cellIndex = cellData.index;
+                const cellEffect = effect(() => {
+                    const currentPath = gameState.path;
+                    const pathIdx = currentPath.indexOf(cellIndex);
+                    const isInPath = pathIdx !== -1;
 
-            if (isInPath) {
-                el.classList.add('active');
-            } else {
-                el.classList.remove('active');
-            }
+                    // Access cell value from gameState.cells for reactivity
+                    const cellVal = gameState.cells[cellIndex].value;
 
-            // Update connector visibility
-            const connectors = el.querySelectorAll('.connector');
-            connectors.forEach(conn => conn.classList.remove('visible'));
+                    // Update Active Class
+                    if (isInPath) {
+                        el.classList.add('active');
+                    } else {
+                        el.classList.remove('active');
+                    }
 
-            if (isInPath) {
-                const prevIdx = pathIdx > 0 ? path[pathIdx - 1] : null;
-                const nextIdx = pathIdx < path.length - 1 ? path[pathIdx + 1] : null;
+                    // Update Connector Visibility
+                    const connectors = el.querySelectorAll('.connector');
+                    connectors.forEach(conn => conn.classList.remove('visible'));
 
-                [prevIdx, nextIdx].forEach(neighborIdx => {
-                    if (neighborIdx === null) return;
+                    if (isInPath) {
+                        const prevIdx = pathIdx > 0 ? currentPath[pathIdx - 1] : null;
+                        const nextIdx = pathIdx < currentPath.length - 1 ? currentPath[pathIdx + 1] : null;
 
-                    const row = Math.floor(idx / GRID_SIZE);
-                    const col = idx % GRID_SIZE;
-                    const nRow = Math.floor(neighborIdx / GRID_SIZE);
-                    const nCol = Math.floor(neighborIdx % GRID_SIZE);
+                        [prevIdx, nextIdx].forEach(neighborIdx => {
+                            if (neighborIdx === null) return;
 
-                    if (nRow < row) el.querySelector('.connector-top').classList.add('visible');
-                    if (nRow > row) el.querySelector('.connector-bottom').classList.add('visible');
-                    if (nCol < col) el.querySelector('.connector-left').classList.add('visible');
-                    if (nCol > col) el.querySelector('.connector-right').classList.add('visible');
+                            const row = Math.floor(cellIndex / GRID_SIZE);
+                            const col = cellIndex % GRID_SIZE;
+                            const nRow = Math.floor(neighborIdx / GRID_SIZE);
+                            const nCol = Math.floor(neighborIdx % GRID_SIZE);
+
+                            if (nRow < row) el.querySelector('.connector-top').classList.add('visible');
+                            if (nRow > row) el.querySelector('.connector-bottom').classList.add('visible');
+                            if (nCol < col) el.querySelector('.connector-left').classList.add('visible');
+                            if (nCol > col) el.querySelector('.connector-right').classList.add('visible');
+                        });
+                    }
+
+                    // Update puzzle number display
+                    let valSpan = el.querySelector('span:not(.cell-index)');
+                    if (cellVal !== null) {
+                        if (!valSpan) {
+                            valSpan = document.createElement('span');
+                            valSpan.style.pointerEvents = 'none';
+                            el.appendChild(valSpan);
+                        }
+                        valSpan.textContent = cellVal;
+                    } else if (valSpan) {
+                        valSpan.remove();
+                    }
                 });
-            }
 
-            // Update puzzle number display
-            let valSpan = el.querySelector('span:not(.cell-index)');
-            if (cellData.value !== null) {
-                if (!valSpan) {
-                    valSpan = document.createElement('span');
-                    valSpan.style.pointerEvents = 'none';
-                    el.appendChild(valSpan);
-                }
-                valSpan.textContent = cellData.value;
-            } else if (valSpan) {
-                valSpan.remove();
+                addDisposable(cellEffect);
             }
         }
     })
@@ -217,10 +239,6 @@ addDisposable(
 
 // Puzzle data (old numbers array, to be migrated)
 let numbers = [];
-let currentSolution = null;
-
-// Track next expected number
-let nextNumber = 1;
 
 function getNumberAtIndex(idx) {
     const num = numbers.find(n => n.index === idx);
@@ -229,10 +247,11 @@ function getNumberAtIndex(idx) {
 
 function canAddToPath(idx) {
     const cellNumber = getNumberAtIndex(idx);
+    const expected = nextNumber.value;
 
     // If it's a numbered cell, must match next expected number
     if (cellNumber !== null) {
-        return cellNumber === nextNumber;
+        return cellNumber === expected;
     }
 
     // Non-numbered cells can be added anytime
@@ -245,8 +264,8 @@ let isDrawing = false;
 // Win detection via effect
 addDisposable(
     effect(() => {
-        // Track reactive state: cellsVisited
-        if (gameState.cellsVisited === GRID_SIZE * GRID_SIZE) {
+        // Track reactive state: path.length
+        if (gameState.path.length === GRID_SIZE * GRID_SIZE) {
             console.log('🎉 Win detected via effect!');
             stopTimer();
 
@@ -262,42 +281,18 @@ addDisposable(
 
 // Helper to add a cell to the path
 function addToPath(index) {
-    path.push(index);
-    gameState.cellsVisited = path.length;
-
-    const cellNumber = getNumberAtIndex(index);
-    if (cellNumber === nextNumber) {
-        nextNumber++;
-    }
-    console.log('Path:', path, 'Next number:', nextNumber);
-
-    // Trigger re-render
-    gameState.cells = [...gameState.cells];
+    gameState.path = [...gameState.path, index];
+    console.log('Path:', [...gameState.path], 'Next number:', nextNumber.value);
 }
 
 // Helper to truncate path (undo/backtrack)
 function truncatePath(targetIndex) {
-    const targetPos = path.indexOf(targetIndex);
+    const targetPos = gameState.path.indexOf(targetIndex);
     if (targetPos === -1) return;
 
     // Remove cells after target
-    const removedCells = path.slice(targetPos + 1);
-    path.length = targetPos + 1;
-    gameState.cellsVisited = path.length;
-
-    // Recalculate nextNumber
-    nextNumber = 1;
-    path.forEach(idx => {
-        const num = getNumberAtIndex(idx);
-        if (num === nextNumber) {
-            nextNumber++;
-        }
-    });
-
-    console.log('Backtracked to:', targetIndex, 'Path:', path, 'Next:', nextNumber);
-
-    // Trigger re-render
-    gameState.cells = [...gameState.cells];
+    gameState.path = gameState.path.slice(0, targetPos + 1);
+    console.log('Backtracked to:', targetIndex, 'Path:', [...gameState.path], 'Next:', nextNumber.value);
 }
 
 grid.addEventListener('mousedown', (e) => {
@@ -306,21 +301,21 @@ grid.addEventListener('mousedown', (e) => {
         const index = parseInt(cellEl.dataset.index);
 
         // Case 1: Resume from last cell
-        if (path.length > 0 && index === path[path.length - 1]) {
+        if (gameState.path.length > 0 && index === gameState.path[gameState.path.length - 1]) {
             isDrawing = true;
             return;
         }
 
         // Case 2: Backtrack/Resume from existing path cell
-        if (path.includes(index)) {
+        if (gameState.path.includes(index)) {
             truncatePath(index);
             isDrawing = true;
             return;
         }
 
         // Case 3: Continue path (click adjacent to end)
-        if (path.length > 0) {
-            const lastIndex = path[path.length - 1];
+        if (gameState.path.length > 0) {
+            const lastIndex = gameState.path[gameState.path.length - 1];
             if (isAdjacent(lastIndex, index) && canAddToPath(index)) {
                 isDrawing = true;
                 addToPath(index);
@@ -332,10 +327,7 @@ grid.addEventListener('mousedown', (e) => {
         const cellNumber = getNumberAtIndex(index);
         if (cellNumber === 1) {
             // Reset everything
-            path.length = 0;
-            gameState.cellsVisited = 0;
-            nextNumber = 1;
-
+            gameState.path = [];
             if (!isTimerRunning) startTimer();
 
             isDrawing = true;
@@ -351,14 +343,14 @@ grid.addEventListener('mousemove', (e) => {
         const index = parseInt(cellEl.dataset.index);
 
         // Backtrack logic: if moving to the previous cell in path
-        if (path.length > 1 && index === path[path.length - 2]) {
+        if (gameState.path.length > 1 && index === gameState.path[gameState.path.length - 2]) {
             truncatePath(index);
             return;
         }
 
         // Add to path logic
-        if (!path.includes(index)) {
-            const lastIndex = path[path.length - 1];
+        if (!gameState.path.includes(index)) {
+            const lastIndex = gameState.path[gameState.path.length - 1];
             if (isAdjacent(lastIndex, index) && canAddToPath(index)) {
                 addToPath(index);
             }
@@ -372,9 +364,7 @@ grid.addEventListener('mouseup', () => {
 
 async function loadNewPuzzle() {
     // Reset game state
-    path.length = 0;
-    nextNumber = 1;
-    gameState.cellsVisited = 0;
+    gameState.path = [];
     resetTimer();
 
     // Show loading state
@@ -409,27 +399,15 @@ async function loadNewPuzzle() {
         // Reset numbers array
         numbers = [];
 
-        // Clear all cell values first
-        gameState.cells.forEach(cell => {
-            cell.value = null;
-        });
+        // Update cell values in state (this is reactive)
+        const nextCells = gameState.cells.map(cell => ({ ...cell, value: null }));
 
-        // Set puzzle numbers
         result.numbers.forEach(({ index, value }) => {
             numbers.push({ index, value }); // Keep for getNumberAtIndex
-            gameState.cells[index].value = value;
+            nextCells[index] = { ...nextCells[index], value };
         });
 
-        // Trigger re-render with immutable update
-        gameState.cells = [...gameState.cells];
-
-        // Update debug display
-        // const debugDiv = document.getElementById('solution-display');
-        // debugDiv.innerHTML = `
-        //     <strong>Puzzle:</strong> ${JSON.stringify(result.numbers)}<br><br>
-        //     <strong>✅ Unique Solution (${result.solution.length} cells):</strong><br>
-        //     ${result.solution.join(' → ')}
-        // `;
+        gameState.cells = nextCells;
 
     } catch (error) {
         console.error('Error generating puzzle:', error);
@@ -463,13 +441,7 @@ document.getElementById('overlay-exit').addEventListener('click', () => {
 });
 
 document.getElementById('reset').addEventListener('click', () => {
-    path.length = 0;
-    nextNumber = 1;
-    gameState.cellsVisited = 0;
+    gameState.path = [];
     resetTimer();
-
-    // Trigger re-render to clear dots and lines
-    gameState.cells = [...gameState.cells];
-
     console.log('Reset complete');
 });
