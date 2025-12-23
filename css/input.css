@@ -18,3 +18,65 @@
 .cell:hover {
     @apply bg-gray-50;
 }
+
+/* Path Visualization */
+.path-dot {
+    @apply absolute w-3 h-3 bg-gray-200 rounded-full transition-all duration-300 z-0 opacity-0 pointer-events-none;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.cell.active .path-dot {
+    @apply bg-blue-600 scale-125 z-0 opacity-100;
+}
+
+.connector {
+    @apply absolute bg-transparent z-0 transition-all duration-300 pointer-events-none;
+}
+
+.cell.active .connector.visible {
+    @apply bg-blue-600;
+}
+
+/* Connector positions */
+.connector-top {
+    top: 0;
+    left: 50%;
+    width: 6px;
+    height: 50%;
+    transform: translateX(-50%);
+}
+
+.connector-bottom {
+    bottom: 0;
+    left: 50%;
+    width: 6px;
+    height: 50%;
+    transform: translateX(-50%);
+}
+
+.connector-left {
+    top: 50%;
+    left: 0;
+    width: 50%;
+    height: 6px;
+    transform: translateY(-50%);
+}
+
+.connector-right {
+    top: 50%;
+    right: 0;
+    width: 50%;
+    height: 6px;
+    transform: translateY(-50%);
+}
+
+/* Adjust cell-index and value text to be above connectors */
+.cell-index {
+    @apply z-10;
+}
+
+.cell span:not(.cell-index) {
+    @apply z-20 relative font-bold text-gray-800;
+}

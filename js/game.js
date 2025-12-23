@@ -144,6 +144,18 @@ addDisposable(
                 el.className = 'cell';
                 el.dataset.index = cellData.index;
 
+                // Path Dot
+                const dot = document.createElement('div');
+                dot.className = 'path-dot';
+                el.appendChild(dot);
+
+                // Connectors
+                ['top', 'bottom', 'left', 'right'].forEach(dir => {
+                    const conn = document.createElement('div');
+                    conn.className = `connector connector-${dir}`;
+                    el.appendChild(conn);
+                });
+
                 // Debug index span
                 const indexSpan = document.createElement('span');
                 indexSpan.className = 'cell-index';
@@ -154,9 +166,38 @@ addDisposable(
             }
 
             // Updates on every render
-            // Check if this cell is in the path
-            const isInPath = path.includes(cellData.index);
-            el.style.background = isInPath ? '#4CAF50' : '';
+            const idx = cellData.index;
+            const pathIdx = path.indexOf(idx);
+            const isInPath = pathIdx !== -1;
+
+            if (isInPath) {
+                el.classList.add('active');
+            } else {
+                el.classList.remove('active');
+            }
+
+            // Update connector visibility
+            const connectors = el.querySelectorAll('.connector');
+            connectors.forEach(conn => conn.classList.remove('visible'));
+
+            if (isInPath) {
+                const prevIdx = pathIdx > 0 ? path[pathIdx - 1] : null;
+                const nextIdx = pathIdx < path.length - 1 ? path[pathIdx + 1] : null;
+
+                [prevIdx, nextIdx].forEach(neighborIdx => {
+                    if (neighborIdx === null) return;
+
+                    const row = Math.floor(idx / GRID_SIZE);
+                    const col = idx % GRID_SIZE;
+                    const nRow = Math.floor(neighborIdx / GRID_SIZE);
+                    const nCol = Math.floor(neighborIdx % GRID_SIZE);
+
+                    if (nRow < row) el.querySelector('.connector-top').classList.add('visible');
+                    if (nRow > row) el.querySelector('.connector-bottom').classList.add('visible');
+                    if (nCol < col) el.querySelector('.connector-left').classList.add('visible');
+                    if (nCol > col) el.querySelector('.connector-right').classList.add('visible');
+                });
+            }
 
             // Update puzzle number display
             let valSpan = el.querySelector('span:not(.cell-index)');
@@ -209,10 +250,12 @@ addDisposable(
             console.log('🎉 Win detected via effect!');
             stopTimer();
 
-            // Show win overlay
-            const overlay = document.getElementById('win-overlay');
-            overlay.classList.remove('hidden');
-            overlay.classList.add('flex');
+            // Show win overlay with a slight delay so user sees the final line
+            setTimeout(() => {
+                const overlay = document.getElementById('win-overlay');
+                overlay.classList.remove('hidden');
+                overlay.classList.add('flex');
+            }, 300);
         }
     })
 );
@@ -258,8 +301,9 @@ function truncatePath(targetIndex) {
 }
 
 grid.addEventListener('mousedown', (e) => {
-    if (e.target.classList.contains('cell')) {
-        const index = parseInt(e.target.dataset.index);
+    const cellEl = e.target.closest('.cell');
+    if (cellEl) {
+        const index = parseInt(cellEl.dataset.index);
 
         // Case 1: Resume from last cell
         if (path.length > 0 && index === path[path.length - 1]) {
@@ -267,7 +311,7 @@ grid.addEventListener('mousedown', (e) => {
             return;
         }
 
-        // Case 2: Backtrack (click on existing path cell)
+        // Case 2: Backtrack/Resume from existing path cell
         if (path.includes(index)) {
             truncatePath(index);
             isDrawing = true;
@@ -302,8 +346,9 @@ grid.addEventListener('mousedown', (e) => {
 });
 
 grid.addEventListener('mousemove', (e) => {
-    if (isDrawing && e.target.classList.contains('cell')) {
-        const index = parseInt(e.target.dataset.index);
+    const cellEl = e.target.closest('.cell');
+    if (isDrawing && cellEl) {
+        const index = parseInt(cellEl.dataset.index);
 
         // Backtrack logic: if moving to the previous cell in path
         if (path.length > 1 && index === path[path.length - 2]) {
@@ -422,9 +467,9 @@ document.getElementById('reset').addEventListener('click', () => {
     nextNumber = 1;
     gameState.cellsVisited = 0;
     resetTimer();
-    const cells = grid.querySelectorAll('.cell');
-    cells.forEach(cell => {
-        cell.style.background = '';
-    });
+
+    // Trigger re-render to clear dots and lines
+    gameState.cells = [...gameState.cells];
+
     console.log('Reset complete');
 });
